@@ -2,16 +2,16 @@
 set -e
 
 # ============================================
-#  poeTest - Instalador para Ubuntu/Debian
+#  poeHal - Instalador para Ubuntu/Debian
 #  PLANET IGS-4215-8UP2T2S PoE++ CLI Tool
 #  Requiere: Python 3.11+
 # ============================================
 
-APP_NAME="poeTest"
+APP_NAME="poeHal"
 APP_DIR="/opt/$APP_NAME"
 VENV_DIR="$APP_DIR/venv"
 BIN_LINK="/usr/local/bin/$APP_NAME"
-SCRIPT_NAME="poeTest.py"
+SCRIPT_NAME="poeHal.py"
 PYTHON_MIN="3.11"
 
 echo ""
@@ -164,7 +164,7 @@ echo "[6/6] Creando comando '$APP_NAME'..."
 
 cat > "$BIN_LINK" << WRAPPER
 #!/bin/bash
-# poeTest - PLANET IGS-4215-8UP2T2S PoE++ CLI Tool
+# poeHal - PLANET IGS-4215-8UP2T2S PoE++ CLI Tool
 # Requiere acceso de red al switch (192.168.1.90)
 $APP_DIR/venv/bin/python $APP_DIR/$SCRIPT_NAME "\$@"
 WRAPPER
@@ -184,22 +184,22 @@ echo "  Python:  $INSTALLED_PY"
 echo "  Ruta:    $APP_DIR"
 echo ""
 echo "  LECTURA:"
-echo "    poeTest -r status          Resumen rapido"
-echo "    poeTest -r ports           Tabla de puertos"
-echo "    poeTest -r port3           Detalle puerto 3"
-echo "    poeTest -r power           Datos de potencia"
-echo "    poeTest -r system          Info del sistema"
-echo "    poeTest -r watch,5         Monitor cada 5s"
-echo "    poeTest -r csv             Exportar a CSV"
-echo "    poeTest -r log             Agregar al log"
+echo "    poeHal -r status          Resumen rapido"
+echo "    poeHal -r ports           Tabla de puertos"
+echo "    poeHal -r port3           Detalle puerto 3"
+echo "    poeHal -r power           Datos de potencia"
+echo "    poeHal -r system          Info del sistema"
+echo "    poeHal -r watch,5         Monitor cada 5s"
+echo "    poeHal -r csv             Exportar a CSV"
+echo "    poeHal -r log             Agregar al log"
 echo ""
 echo "  ESCRITURA:"
-echo "    poeTest -w port3,1         Habilitar puerto 3"
-echo "    poeTest -w port3,0         Deshabilitar puerto 3"
-echo "    poeTest -w port3,r         Reiniciar puerto 3"
+echo "    poeHal -w port3,1         Habilitar puerto 3"
+echo "    poeHal -w port3,0         Deshabilitar puerto 3"
+echo "    poeHal -w port3,r         Reiniciar puerto 3"
 echo ""
 echo "  AYUDA:"
-echo "    poeTest help"
+echo "    poeHal help"
 echo ""
 echo "  Desinstalar:  sudo ./uninstall.sh"
 echo ""

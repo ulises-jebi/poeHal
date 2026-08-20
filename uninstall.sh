@@ -2,11 +2,11 @@
 set -e
 
 # ============================================
-#  poeTest - Desinstalador
+#  poeHal - Desinstalador
 #  PLANET IGS-4215-8UP2T2S PoE++ CLI Tool
 # ============================================
 
-APP_NAME="poeTest"
+APP_NAME="poeHal"
 APP_DIR="/opt/$APP_NAME"
 BIN_LINK="/usr/local/bin/$APP_NAME"
 

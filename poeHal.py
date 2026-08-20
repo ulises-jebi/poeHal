@@ -1,6 +1,6 @@
 """
 ========================================================================
- PLANET IGS-4215-8UP2T2S - PoE CLI Tool (poeTest)
+ PLANET IGS-4215-8UP2T2S - PoE CLI Tool (poeHal)
  Monitoreo y control de puertos PoE
 ========================================================================
  Requisitos:
@@ -8,7 +8,7 @@
    pip install requests
 
  Uso:
-   poeTest help
+   poeHal help
 ========================================================================
 """
 
@@ -608,41 +608,41 @@ def cmd_log():
 
 def cmd_help():
     print("")
-    print("  PLANET IGS-4215-8UP2T2S - PoE CLI Tool (poeTest)")
+    print("  PLANET IGS-4215-8UP2T2S - PoE CLI Tool (poeHal)")
     print("  Switch: " + SWITCH_CONFIG["host"])
     print("")
     print("  LECTURA (-r):")
-    print("    poeTest -r status              Resumen rapido")
-    print("    poeTest -r ports               Tabla detallada de puertos")
-    print("    poeTest -r port3               Detalle del puerto 3")
-    print("    poeTest -r power               Solo datos de potencia")
-    print("    poeTest -r system              Info del sistema")
-    print("    poeTest -r watch               Refresh cada 5 segundos")
-    print("    poeTest -r watch,10            Refresh cada 10 segundos")
-    print("    poeTest -r csv                 Exportar snapshot a CSV")
-    print("    poeTest -r log                 Agregar linea al log continuo")
+    print("    poeHal -r status              Resumen rapido")
+    print("    poeHal -r ports               Tabla detallada de puertos")
+    print("    poeHal -r port3               Detalle del puerto 3")
+    print("    poeHal -r power               Solo datos de potencia")
+    print("    poeHal -r system              Info del sistema")
+    print("    poeHal -r watch               Refresh cada 5 segundos")
+    print("    poeHal -r watch,10            Refresh cada 10 segundos")
+    print("    poeHal -r csv                 Exportar snapshot a CSV")
+    print("    poeHal -r log                 Agregar linea al log continuo")
     print("")
     print("  ESCRITURA (-w):")
-    print("    poeTest -w port3,1             Habilitar puerto 3")
-    print("    poeTest -w port3,0             Deshabilitar puerto 3")
-    print("    poeTest -w port3,r             Reiniciar puerto 3 (off/on 5s)")
-    print("    poeTest -w port3,r,10          Reiniciar puerto 3, espera 10s")
-    print("    poeTest -w port1,1 port5,0     Multiples puertos a la vez")
-    print("    poeTest -w port1,r port2,r     Reiniciar multiples puertos")
+    print("    poeHal -w port3,1             Habilitar puerto 3")
+    print("    poeHal -w port3,0             Deshabilitar puerto 3")
+    print("    poeHal -w port3,r             Reiniciar puerto 3 (off/on 5s)")
+    print("    poeHal -w port3,r,10          Reiniciar puerto 3, espera 10s")
+    print("    poeHal -w port1,1 port5,0     Multiples puertos a la vez")
+    print("    poeHal -w port1,r port2,r     Reiniciar multiples puertos")
     print("")
     print("  FORMATO -w:")
     print("    port[1-8],[0|1|r]              0=disable, 1=enable, r=restart")
     print("    port[1-8],r,[seg]              restart con espera personalizada")
     print("")
     print("  AYUDA:")
-    print("    poeTest help")
+    print("    poeHal help")
     print("")
     print("  EJEMPLOS:")
-    print("    poeTest -r status")
-    print("    poeTest -r watch,3")
-    print("    poeTest -w port1,1")
-    print("    poeTest -w port5,0 port6,0")
-    print("    poeTest -w port3,r,15")
+    print("    poeHal -r status")
+    print("    poeHal -r watch,3")
+    print("    poeHal -w port1,1")
+    print("    poeHal -w port5,0 port6,0")
+    print("    poeHal -w port3,r,15")
     print("")
 
 
@@ -662,7 +662,7 @@ def main():
 
     if arg1 not in ("-r", "-w"):
         print("  [ERROR] Bandera requerida: -r (lectura) o -w (escritura)")
-        print("  Usa 'poeTest help' para ver los comandos disponibles")
+        print("  Usa 'poeHal help' para ver los comandos disponibles")
         return
 
     flag = arg1
@@ -670,7 +670,7 @@ def main():
     if flag == "-r":
         if len(sys.argv) < 3:
             print("  [ERROR] Falta el comando despues de -r")
-            print("  Usa 'poeTest help' para ver los comandos disponibles")
+            print("  Usa 'poeHal help' para ver los comandos disponibles")
             return
 
         cmd = sys.argv[2].lower()
@@ -715,8 +715,8 @@ def main():
 
         if not args:
             print("  [ERROR] Falta el parametro de puerto")
-            print("  Formato: poeTest -w port[1-8],[0|1|r]")
-            print("  Ejemplo: poeTest -w port3,1")
+            print("  Formato: poeHal -w port[1-8],[0|1|r]")
+            print("  Ejemplo: poeHal -w port3,1")
             return
 
         _, web = connect()
