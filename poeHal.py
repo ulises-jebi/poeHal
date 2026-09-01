@@ -133,19 +133,35 @@ def require_credentials():
         sys.exit(1)
     if SWITCH_CONFIG["web_user"] and SWITCH_CONFIG["web_pass"]:
         return
+    target = "/etc/poeHal/config.ini"
+    # La plantilla vive junto al script (repo o /opt/poeHal), no en el
+    # directorio actual: usar siempre la ruta absoluta.
+    example = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "config.ini.example")
+
     print("  [ERROR] No hay credenciales configuradas para el switch.")
     print("")
     print("  Opcion A - archivo de configuracion (recomendado):")
     print("    sudo mkdir -p /etc/poeHal")
-    print("    sudo cp config.ini.example /etc/poeHal/config.ini")
-    print("    sudo chmod 600 /etc/poeHal/config.ini")
-    print("    sudo nano /etc/poeHal/config.ini")
+    if os.path.isfile(example):
+        print("    sudo cp " + example + " " + target)
+    else:
+        print("    sudo tee " + target + " > /dev/null <<'EOF'")
+        print("    [switch]")
+        print("    host     = " + SWITCH_CONFIG["host"])
+        print("    community = " + SWITCH_CONFIG["community"])
+        print("    web_user = tu-usuario")
+        print("    web_pass = tu-password")
+        print("    EOF")
+    print("    sudo chmod 600 " + target)
+    print("    sudo nano " + target)
     print("")
     print("  Opcion B - variables de entorno:")
-    print("    export POEHAL_USER='jebi'")
+    print("    export POEHAL_USER='tu-usuario'")
     print("    export POEHAL_PASS='tu-password'")
     print("")
     sys.exit(1)
+
 
 PRIORITY_MAP   = {0: "Critical", 1: "High", 2: "Low"}
 PD_TYPE_MAP    = {0: "Standard", 1: "Legacy", 2: "Force"}
