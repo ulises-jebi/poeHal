@@ -139,6 +139,47 @@ poeHal -r status
 > se filtre por el repositorio o el disco, pero **no** la protege en la red. Usar
 > este equipo solo en un segmento OT aislado.
 
+## Pruebas
+
+### Sin switch ni red
+
+Verifica la capa de configuración y credenciales. No necesita el switch, ni red,
+ni `pysnmp`: las dependencias se stubean, así que corre en cualquier Python 3.8+.
+
+```bash
+python3 tests/test_config.py
+```
+
+Comprueba, entre otras cosas, que `help` funciona sin configuración, que un
+comando real aborta con instrucciones cuando faltan credenciales, que un
+`config.ini` legible por otros usuarios (`644` o `640`) es rechazado, que las
+variables de entorno tienen prioridad sobre el archivo, y que el código fuente
+no contiene credenciales.
+
+### Contra el switch real
+
+Requiere Python 3.11 y acceso de red al switch. Verificar primero que el venv
+quedó en la versión correcta:
+
+```bash
+/opt/poeHal/venv/bin/python -c "import pysnmp.hlapi; print('OK')"
+```
+
+Luego, la prueba de credenciales:
+
+```bash
+poeHal -r ports
+```
+
+> **Ojo:** si `-r ports` no imprime nada, es un **fallo**, no un éxito. El
+> comando no muestra nada cuando el scraping falla, así que la salida vacía
+> significa que el login fue rechazado.
+
+Para los comandos de escritura, usar solo puertos sin dispositivos conectados:
+cada escritura reenvía la configuración de los 8 puertos, así que conviene
+comparar `poeHal -r ports` antes y después para confirmar que solo cambió el
+puerto que se tocó.
+
 ## Estructura del proyecto
 
 ```
@@ -150,5 +191,7 @@ poeHal/
 ├── install.sh          # Instalador Linux (venv + comando global + config 600)
 ├── uninstall.sh        # Desinstalador Linux
 ├── .gitignore          # Protege config.ini y artefactos locales
+├── tests/
+│   └── test_config.py  # Pruebas de la capa de configuración (sin switch)
 └── README.md
 ```
