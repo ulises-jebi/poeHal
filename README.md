@@ -90,7 +90,7 @@ SWITCH_CONFIG = {
     "host":       "192.168.1.90",
     "snmp_port":  161,
     "community":  "public",
-    "web_user":   "admin",
+    "web_user":   "jebi",
     "web_pass":   "***PASSWORD-PURGADO***",
 }
 ```

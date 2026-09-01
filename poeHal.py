@@ -31,7 +31,7 @@ SWITCH_CONFIG = {
     "community":  "public",
     "timeout":    5,
     "retries":    2,
-    "web_user":   "admin",
+    "web_user":   "jebi",
     "web_pass":   "***PASSWORD-PURGADO***",
 }
 
