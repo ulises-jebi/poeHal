@@ -1,0 +1,34 @@
+# ============================================================
+#  poeHal - configuracion del switch PoE
+#  PLANET IGS-4215-8UP2T2S
+# ============================================================
+#
+#  INSTALACION:
+#    sudo mkdir -p /etc/poeHal
+#    sudo cp config.ini.example /etc/poeHal/config.ini
+#    sudo chmod 600 /etc/poeHal/config.ini
+#    sudo nano /etc/poeHal/config.ini
+#
+#  IMPORTANTE:
+#    - El archivo real (config.ini) esta en .gitignore. NUNCA subirlo a git.
+#    - poeHal se niega a arrancar si el archivo es legible por otros
+#      usuarios. Debe tener permisos 600.
+#    - Las variables de entorno POEHAL_USER / POEHAL_PASS / POEHAL_HOST /
+#      POEHAL_COMMUNITY sobreescriben lo que este aqui.
+#
+#  Orden de busqueda:
+#    1. $POEHAL_CONFIG
+#    2. ~/.config/poeHal/config.ini
+#    3. /etc/poeHal/config.ini
+#
+# ============================================================
+
+[switch]
+host       = 192.168.1.103
+snmp_port  = 161
+community  = public
+timeout    = 5
+retries    = 2
+
+web_user   = jebi
+web_pass   = CAMBIAR_ESTE_PASSWORD

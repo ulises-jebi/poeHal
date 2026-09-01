@@ -9,6 +9,8 @@ set -e
 APP_NAME="poeHal"
 APP_DIR="/opt/$APP_NAME"
 BIN_LINK="/usr/local/bin/$APP_NAME"
+CONFIG_DIR="/etc/$APP_NAME"
+CONFIG_FILE="$CONFIG_DIR/config.ini"
 
 echo ""
 echo "========================================"
@@ -39,5 +41,17 @@ else
 fi
 
 echo ""
-echo "  $APP_NAME desinstalado completamente."
+echo "  $APP_NAME desinstalado."
 echo ""
+
+# --- Configuracion: no se borra sola porque contiene credenciales ---
+if [ -f "$CONFIG_FILE" ]; then
+    echo "  NOTA: la configuracion con las credenciales del switch"
+    echo "        NO se elimino automaticamente:"
+    echo ""
+    echo "          $CONFIG_FILE"
+    echo ""
+    echo "        Para borrarla tambien:"
+    echo "          sudo rm -rf $CONFIG_DIR"
+    echo ""
+fi

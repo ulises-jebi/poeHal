@@ -13,6 +13,9 @@ VENV_DIR="$APP_DIR/venv"
 BIN_LINK="/usr/local/bin/$APP_NAME"
 SCRIPT_NAME="poeHal.py"
 PYTHON_MIN="3.11"
+CONFIG_DIR="/etc/$APP_NAME"
+CONFIG_FILE="$CONFIG_DIR/config.ini"
+CONFIG_EXAMPLE="config.ini.example"
 
 echo ""
 echo "========================================"
@@ -40,6 +43,11 @@ if [ ! -f "requirements.txt" ]; then
     exit 1
 fi
 
+if [ ! -f "$CONFIG_EXAMPLE" ]; then
+    echo "[ERROR] No se encontro $CONFIG_EXAMPLE en el directorio actual."
+    exit 1
+fi
+
 # ==============================================================
 # FUNCION: Buscar Python 3.11+
 # ==============================================================
@@ -62,7 +70,7 @@ find_python() {
 # ==============================================================
 # PASO 1: Verificar / Instalar Python 3.11+
 # ==============================================================
-echo "[1/6] Verificando Python >= $PYTHON_MIN..."
+echo "[1/7] Verificando Python >= $PYTHON_MIN..."
 
 PYTHON_CMD=$(find_python) || PYTHON_CMD=""
 
@@ -129,14 +137,14 @@ if ! "$PYTHON_CMD" -m venv --help > /dev/null 2>&1; then
 fi
 
 # --- Instalar dependencias del sistema ---
-echo "[2/6] Instalando dependencias del sistema..."
+echo "[2/7] Instalando dependencias del sistema..."
 apt install -y snmp snmp-mibs-downloader > /dev/null 2>&1 || \
 apt install -y snmp > /dev/null 2>&1
 
 echo "       OK"
 
 # --- Crear directorio de instalacion ---
-echo "[3/6] Copiando archivos a $APP_DIR..."
+echo "[3/7] Copiando archivos a $APP_DIR..."
 
 if [ -d "$APP_DIR" ]; then
     echo "       Instalacion previa detectada, reemplazando..."
@@ -146,31 +154,52 @@ fi
 mkdir -p "$APP_DIR"
 cp "$SCRIPT_NAME" "$APP_DIR/"
 cp requirements.txt "$APP_DIR/"
+cp "$CONFIG_EXAMPLE" "$APP_DIR/"
 
 echo "       OK"
 
 # --- Crear entorno virtual e instalar dependencias Python ---
-echo "[4/6] Creando entorno virtual con $PYTHON_CMD..."
+echo "[4/7] Creando entorno virtual con $PYTHON_CMD..."
 "$PYTHON_CMD" -m venv "$VENV_DIR"
 echo "       OK"
 
-echo "[5/6] Instalando dependencias Python..."
+echo "[5/7] Instalando dependencias Python..."
 "$VENV_DIR/bin/pip" install --upgrade pip > /dev/null 2>&1
 "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements.txt" > /dev/null 2>&1
 echo "       OK"
 
 # --- Crear comando global ---
-echo "[6/6] Creando comando '$APP_NAME'..."
+echo "[6/7] Creando comando '$APP_NAME'..."
 
 cat > "$BIN_LINK" << WRAPPER
 #!/bin/bash
 # poeHal - PLANET IGS-4215-8UP2T2S PoE++ CLI Tool
-# Requiere acceso de red al switch (192.168.1.90)
+# Credenciales y IP del switch: $CONFIG_FILE
 $APP_DIR/venv/bin/python $APP_DIR/$SCRIPT_NAME "\$@"
 WRAPPER
 
 chmod +x "$BIN_LINK"
 echo "       OK"
+
+# --- Configuracion protegida (credenciales fuera del repositorio) ---
+echo "[7/7] Configurando credenciales en $CONFIG_FILE..."
+
+mkdir -p "$CONFIG_DIR"
+chmod 700 "$CONFIG_DIR"
+
+if [ -f "$CONFIG_FILE" ]; then
+    echo "       Configuracion existente conservada (no se sobreescribe)."
+else
+    cp "$CONFIG_EXAMPLE" "$CONFIG_FILE"
+    echo "       Plantilla creada. Debes editarla antes de usar poeHal."
+    CONFIG_IS_NEW=1
+fi
+
+# Solo root puede leer las credenciales
+chown root:root "$CONFIG_DIR" "$CONFIG_FILE" 2>/dev/null || true
+chmod 600 "$CONFIG_FILE"
+
+echo "       OK (permisos $(stat -c '%a' "$CONFIG_FILE" 2>/dev/null || echo 600), solo root)"
 
 # --- Verificar instalacion ---
 INSTALLED_PY=$("$VENV_DIR/bin/python" --version 2>&1)
@@ -182,7 +211,22 @@ echo "========================================"
 echo ""
 echo "  Python:  $INSTALLED_PY"
 echo "  Ruta:    $APP_DIR"
+echo "  Config:  $CONFIG_FILE (permisos 600, solo root)"
 echo ""
+
+if [ -n "$CONFIG_IS_NEW" ]; then
+    echo "  ----------------------------------------"
+    echo "   ACCION REQUERIDA antes de usar poeHal:"
+    echo "   Edita las credenciales del switch:"
+    echo ""
+    echo "     sudo nano $CONFIG_FILE"
+    echo ""
+    echo "   Sin credenciales validas, poeHal aborta"
+    echo "   con instrucciones."
+    echo "  ----------------------------------------"
+    echo ""
+fi
+
 echo "  LECTURA:"
 echo "    poeHal -r status          Resumen rapido"
 echo "    poeHal -r ports           Tabla de puertos"

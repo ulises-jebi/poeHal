@@ -9,7 +9,7 @@ Usa SNMP + Web Scraping para obtener datos en tiempo real de consumo, corriente,
 ## Instalación en Linux (Ubuntu / Raspberry Pi OS)
 
 ```bash
-git clone https://github.com/TU-USUARIO/poeHal.git
+git clone https://github.com/ulises-jebi/poeHal.git
 cd poeHal
 chmod +x install.sh uninstall.sh
 sudo ./install.sh
@@ -20,9 +20,12 @@ El instalador automáticamente:
 - Crea un entorno virtual aislado en `/opt/poeHal/venv/`
 - Instala todas las dependencias dentro del venv
 - Registra el comando `poeHal` en el PATH del sistema
+- Crea `/etc/poeHal/config.ini` con permisos `600` (solo root)
 
-Después de instalar, ejecutar desde cualquier directorio:
+Después de instalar, **editar las credenciales** y ejecutar desde cualquier
+directorio:
 ```bash
+sudo nano /etc/poeHal/config.ini
 poeHal -r status
 ```
 
@@ -76,33 +79,76 @@ poeHal help
 ## Requisitos
 
 - **Python 3.11+** (en Linux el instalador lo resuelve automáticamente)
-- Acceso de red al switch (192.168.1.90)
+- Acceso de red al switch (192.168.1.103)
 - SNMP habilitado en el switch (community: public)
 - **Linux:** Ubuntu / Debian / Raspberry Pi OS (64-bit)
 - **Windows:** Windows 10/11 con Python 3.11 instalado
 
-## Configuración
+## Configuración y credenciales
 
-La IP del switch y credenciales se configuran en `SWITCH_CONFIG` dentro de `poeHal.py`:
+**El código no contiene credenciales.** Se leen de un archivo fuera del
+repositorio, protegido con permisos `600` (solo root).
 
-```python
-SWITCH_CONFIG = {
-    "host":       "192.168.1.90",
-    "snmp_port":  161,
-    "community":  "public",
-    "web_user":   "jebi",
-    "web_pass":   "***PASSWORD-PURGADO***",
-}
+El instalador crea la plantilla automáticamente. Solo hay que editarla:
+
+```bash
+sudo nano /etc/poeHal/config.ini
 ```
+
+```ini
+[switch]
+host       = 192.168.1.103
+snmp_port  = 161
+community  = public
+timeout    = 5
+retries    = 2
+
+web_user   = jebi
+web_pass   = TU_PASSWORD
+```
+
+### Orden de búsqueda
+
+| Prioridad | Origen |
+|---|---|
+| 1 | Variables de entorno `POEHAL_USER`, `POEHAL_PASS`, `POEHAL_HOST`, `POEHAL_COMMUNITY` |
+| 2 | `$POEHAL_CONFIG` (ruta explícita) |
+| 3 | `~/.config/poeHal/config.ini` |
+| 4 | `/etc/poeHal/config.ini` |
+
+Alternativa sin archivo, útil para scripts:
+
+```bash
+export POEHAL_USER='jebi'
+export POEHAL_PASS='tu-password'
+poeHal -r status
+```
+
+### Protecciones
+
+- `config.ini` está en `.gitignore`: no puede subirse a git por accidente.
+- poeHal **se niega a arrancar** si el archivo es legible por otros usuarios,
+  e indica el `chmod` exacto para corregirlo.
+- Sin credenciales válidas, aborta con instrucciones en vez de fallar de forma
+  silenciosa.
+- `poeHal help` funciona siempre, incluso sin configuración, y muestra de dónde
+  se están leyendo los datos.
+
+> **Nota sobre el transporte:** la interfaz web del switch usa HTTP plano y SNMP
+> v2c usa community en texto claro. Proteger el archivo evita que la contraseña
+> se filtre por el repositorio o el disco, pero **no** la protege en la red. Usar
+> este equipo solo en un segmento OT aislado.
 
 ## Estructura del proyecto
 
 ```
 poeHal/
-├── poeHal.py          # Script principal
-├── poeHal.bat         # Launcher para Windows
+├── poeHal.py           # Script principal
+├── poeHal.bat          # Launcher para Windows
+├── config.ini.example  # Plantilla de configuración (sin credenciales reales)
 ├── requirements.txt    # Dependencias Python
-├── install.sh          # Instalador Linux (crea venv + comando global)
+├── install.sh          # Instalador Linux (venv + comando global + config 600)
 ├── uninstall.sh        # Desinstalador Linux
+├── .gitignore          # Protege config.ini y artefactos locales
 └── README.md
 ```

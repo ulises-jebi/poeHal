@@ -1,0 +1,17 @@
+# Credenciales - NUNCA subir a git
+config.ini
+.env
+
+# Salidas del propio poeHal
+poe_log.csv
+poe_export_*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Artefactos del sistema operativo / Google Drive
+.DS_Store
+desktop.ini

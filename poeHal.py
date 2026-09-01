@@ -7,6 +7,11 @@
    pip install pysnmp==4.4.12 pyasn1==0.4.8 pyasn1-modules==0.2.8
    pip install requests
 
+ Credenciales:
+   Este archivo NO contiene credenciales. Se leen de
+   /etc/poeHal/config.ini (permisos 600) o de variables de entorno.
+   Ver config.ini.example.
+
  Uso:
    poeHal help
 ========================================================================
@@ -20,22 +25,127 @@ import requests
 import re
 import sys
 import os
+import stat
 import time
 import csv
+import configparser
 from datetime import datetime, timedelta
 
 
-SWITCH_CONFIG = {
+LOG_FILE = "poe_log.csv"
+
+
+# ==============================================================
+# CONFIGURACION
+# --------------------------------------------------------------
+# Las credenciales nunca viven en el codigo. Se buscan, en orden:
+#   1. $POEHAL_CONFIG            (ruta explicita)
+#   2. ~/.config/poeHal/config.ini
+#   3. /etc/poeHal/config.ini    (instalacion estandar)
+# Las variables de entorno POEHAL_* sobreescriben cualquier archivo.
+# ==============================================================
+DEFAULT_CONFIG = {
     "host":       "192.168.1.103",
     "snmp_port":  161,
     "community":  "public",
     "timeout":    5,
     "retries":    2,
-    "web_user":   "jebi",
-    "web_pass":   "***PASSWORD-PURGADO***",
+    "web_user":   "",
+    "web_pass":   "",
 }
 
-LOG_FILE = "poe_log.csv"
+CONFIG_PATHS = [
+    os.environ.get("POEHAL_CONFIG"),
+    os.path.expanduser("~/.config/poeHal/config.ini"),
+    "/etc/poeHal/config.ini",
+]
+
+ENV_OVERRIDES = {
+    "host":      "POEHAL_HOST",
+    "community": "POEHAL_COMMUNITY",
+    "web_user":  "POEHAL_USER",
+    "web_pass":  "POEHAL_PASS",
+}
+
+CONFIG_SOURCE = None
+CONFIG_ERROR = None
+
+
+def check_permissions(path):
+    """Devuelve un mensaje de error si el archivo es legible por otros."""
+    mode = os.stat(path).st_mode
+    if mode & 0o077:
+        return ("Permisos inseguros en " + path + " ("
+                + oct(stat.S_IMODE(mode)) + "): legible por otros usuarios."
+                + "\n          Corrige con:  sudo chmod 600 " + path)
+    return None
+
+
+def load_config():
+    """Carga la configuracion sin abortar: los errores quedan en CONFIG_ERROR
+    para que 'poeHal help' siga funcionando sin credenciales."""
+    global CONFIG_SOURCE, CONFIG_ERROR
+    cfg = dict(DEFAULT_CONFIG)
+
+    for path in CONFIG_PATHS:
+        if not path or not os.path.isfile(path):
+            continue
+        problem = check_permissions(path)
+        if problem:
+            CONFIG_ERROR = problem
+            break
+        parser = configparser.ConfigParser()
+        try:
+            parser.read(path, encoding="utf-8")
+        except configparser.Error as e:
+            CONFIG_ERROR = "No se pudo leer " + path + ": " + str(e)
+            break
+        if parser.has_section("switch"):
+            for key in DEFAULT_CONFIG:
+                if parser.has_option("switch", key):
+                    cfg[key] = parser.get("switch", key)
+        CONFIG_SOURCE = path
+        break
+
+    for key, env_name in ENV_OVERRIDES.items():
+        val = os.environ.get(env_name)
+        if val:
+            cfg[key] = val
+            if not CONFIG_SOURCE:
+                CONFIG_SOURCE = "variables de entorno POEHAL_*"
+
+    for key in ("snmp_port", "timeout", "retries"):
+        try:
+            cfg[key] = int(cfg[key])
+        except (TypeError, ValueError):
+            cfg[key] = DEFAULT_CONFIG[key]
+
+    return cfg
+
+
+SWITCH_CONFIG = load_config()
+
+
+def require_credentials():
+    """Aborta con instrucciones si no hay credenciales utilizables."""
+    if CONFIG_ERROR:
+        print("  [ERROR] " + CONFIG_ERROR)
+        sys.exit(1)
+    if SWITCH_CONFIG["web_user"] and SWITCH_CONFIG["web_pass"]:
+        return
+    print("  [ERROR] No hay credenciales configuradas para el switch.")
+    print("")
+    print("  Opcion A - archivo de configuracion (recomendado):")
+    print("    sudo mkdir -p /etc/poeHal")
+    print("    sudo cp config.ini.example /etc/poeHal/config.ini")
+    print("    sudo chmod 600 /etc/poeHal/config.ini")
+    print("    sudo nano /etc/poeHal/config.ini")
+    print("")
+    print("  Opcion B - variables de entorno:")
+    print("    export POEHAL_USER='jebi'")
+    print("    export POEHAL_PASS='tu-password'")
+    print("")
+    sys.exit(1)
 
 PRIORITY_MAP   = {0: "Critical", 1: "High", 2: "Low"}
 PD_TYPE_MAP    = {0: "Standard", 1: "Legacy", 2: "Force"}
@@ -426,6 +536,7 @@ def show_port_detail(port):
 # COMMANDS
 # ==============================================================
 def connect():
+    require_credentials()
     snmp = SNMPClient(SWITCH_CONFIG)
     if not snmp.test():
         print("  [ERROR] SNMP no responde")
@@ -610,6 +721,13 @@ def cmd_help():
     print("")
     print("  PLANET IGS-4215-8UP2T2S - PoE CLI Tool (poeHal)")
     print("  Switch: " + SWITCH_CONFIG["host"])
+    if CONFIG_ERROR:
+        print("  Config: [ERROR] " + CONFIG_ERROR.split("\n")[0])
+    elif CONFIG_SOURCE:
+        creds = "con credenciales" if SWITCH_CONFIG["web_user"] else "SIN credenciales"
+        print("  Config: " + CONFIG_SOURCE + " (" + creds + ")")
+    else:
+        print("  Config: sin archivo (ver config.ini.example)")
     print("")
     print("  LECTURA (-r):")
     print("    poeHal -r status              Resumen rapido")
