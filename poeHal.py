@@ -67,8 +67,11 @@ ENV_OVERRIDES = {
     "web_pass":  "POEHAL_PASS",
 }
 
+ETC_CONFIG_DIR = "/etc/poeHal"
+
 CONFIG_SOURCE = None
 CONFIG_ERROR = None
+CONFIG_HINT = None
 
 
 def check_permissions(path):
@@ -84,11 +87,18 @@ def check_permissions(path):
 def load_config():
     """Carga la configuracion sin abortar: los errores quedan en CONFIG_ERROR
     para que 'poeHal help' siga funcionando sin credenciales."""
-    global CONFIG_SOURCE, CONFIG_ERROR
+    global CONFIG_SOURCE, CONFIG_ERROR, CONFIG_HINT
     cfg = dict(DEFAULT_CONFIG)
 
     for path in CONFIG_PATHS:
         if not path or not os.path.isfile(path):
+            continue
+        if not os.access(path, os.R_OK):
+            # configparser ignora en silencio lo que no puede abrir: avisar.
+            CONFIG_HINT = ("El archivo " + path + " existe pero el usuario "
+                           + "actual no puede leerlo.\n"
+                           + "  Ejecuta el comando con sudo, o dale acceso a "
+                           + "tu usuario (ver README).")
             continue
         problem = check_permissions(path)
         if problem:
@@ -113,6 +123,13 @@ def load_config():
             cfg[key] = val
             if not CONFIG_SOURCE:
                 CONFIG_SOURCE = "variables de entorno POEHAL_*"
+
+    if not CONFIG_SOURCE and not CONFIG_HINT:
+        if (os.path.isdir(ETC_CONFIG_DIR)
+                and not os.access(ETC_CONFIG_DIR, os.R_OK | os.X_OK)):
+            CONFIG_HINT = (ETC_CONFIG_DIR + " existe pero solo root puede "
+                           + "entrar.\n  Ejecuta el comando con sudo, o dale "
+                           + "acceso a tu usuario (ver README).")
 
     for key in ("snmp_port", "timeout", "retries"):
         try:
@@ -141,6 +158,9 @@ def require_credentials():
 
     print("  [ERROR] No hay credenciales configuradas para el switch.")
     print("")
+    if CONFIG_HINT:
+        print("  AVISO: " + CONFIG_HINT)
+        print("")
     print("  Opcion A - archivo de configuracion (recomendado):")
     print("    sudo mkdir -p /etc/poeHal")
     if os.path.isfile(example):

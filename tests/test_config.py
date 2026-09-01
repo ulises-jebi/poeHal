@@ -165,7 +165,26 @@ def main():
     check("snmp_port invalido cae al default 161",
           rc == 0 and '"snmp_port": 161' in out, out)
 
-    # 10. .gitignore protege config.ini
+    # 10. archivo existente pero ilegible: aviso claro, no "no hay config"
+    unread = os.path.join(tmp, "unreadable.ini")
+    with open(unread, "w") as f:
+        f.write("[switch]\nweb_user = u\nweb_pass = p\n")
+    os.chmod(unread, 0o000)
+    if os.access(unread, os.R_OK):      # root ignora los permisos
+        print("  [SKIP] archivo ilegible (corriendo como root)")
+    else:
+        rc, out = run(stub, ["-r", "ports"], {"POEHAL_CONFIG": unread})
+        check("archivo ilegible produce un aviso explicito",
+              rc != 0 and "no puede leerlo" in out, out)
+        check("el aviso sugiere sudo", "sudo" in out, out)
+        # las variables de entorno deben seguir funcionando igual
+        rc, out = run(stub, ["help"], {"POEHAL_CONFIG": unread,
+                                       "POEHAL_USER": "u", "POEHAL_PASS": "p"})
+        check("archivo ilegible no bloquea las variables de entorno",
+              rc == 0 and "variables de entorno" in out, out)
+    os.chmod(unread, 0o600)
+
+    # 11. .gitignore protege config.ini
     gi = os.path.join(REPO, ".gitignore")
     check(".gitignore existe", os.path.isfile(gi))
     if os.path.isfile(gi):
