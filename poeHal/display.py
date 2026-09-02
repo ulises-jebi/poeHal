@@ -33,7 +33,7 @@ def show_port_table(ports, compact=False):
         return
 
     if compact:
-        print("  Port  Estado       mA   Watts")
+        print("  Cube  Estado       mA   Watts")
         print("  " + "-" * 30)
         for p in ports:
             ind = ">" if p["current_mA"] > 0 else " "
@@ -48,7 +48,7 @@ def show_port_table(ports, compact=False):
         print("  " + "-" * 30)
         print("  TOTAL".ljust(16) + str(total_ma).rjust(5) + ("%.1f" % total_w).rjust(7))
     else:
-        print("  Port  Estado       mA    Watts    Max W Prioridad  PD Type    Inline")
+        print("  Cube  Estado       mA    Watts    Max W Prioridad  PD Type    Inline")
         print("  " + "-" * 70)
         for p in ports:
             active = p["current_mA"] > 0 or p["power_W"] > 0
@@ -67,7 +67,7 @@ def show_port_table(ports, compact=False):
 
 
 def show_port_detail(port):
-    header("Puerto " + str(port["port"]) + " - Detalle")
+    header("Cube " + str(port["port"]) + " - Detalle")
     show_dict({
         "Estado PoE":     port["enabled"],
         "Corriente":      str(port["current_mA"]) + " mA",

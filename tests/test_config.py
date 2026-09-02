@@ -128,14 +128,14 @@ def main():
 
     # 5. permisos 644 -> rechazado
     os.chmod(cfg, 0o644)
-    rc, out = run(stub, ["-r", "ports"], {"POEHAL_CONFIG": cfg})
+    rc, out = run(stub, ["-r", "cubes"], {"POEHAL_CONFIG": cfg})
     check("config con permisos 644 es rechazada",
           rc != 0 and "Permisos inseguros" in out, out)
     check("el rechazo indica el chmod exacto", "chmod 600" in out, out)
 
     # 6. permisos 640 (grupo) -> tambien rechazado
     os.chmod(cfg, 0o640)
-    rc, out = run(stub, ["-r", "ports"], {"POEHAL_CONFIG": cfg})
+    rc, out = run(stub, ["-r", "cubes"], {"POEHAL_CONFIG": cfg})
     check("config legible por grupo (640) es rechazada",
           rc != 0 and "Permisos inseguros" in out, out)
 
@@ -174,7 +174,7 @@ def main():
     if os.access(unread, os.R_OK):      # root ignora los permisos
         print("  [SKIP] archivo ilegible (corriendo como root)")
     else:
-        rc, out = run(stub, ["-r", "ports"], {"POEHAL_CONFIG": unread})
+        rc, out = run(stub, ["-r", "cubes"], {"POEHAL_CONFIG": unread})
         check("archivo ilegible produce un aviso explicito",
               rc != 0 and "no puede leerlo" in out, out)
         check("el aviso sugiere sudo", "sudo" in out, out)
@@ -191,6 +191,69 @@ def main():
     if os.path.isfile(gi):
         check(".gitignore incluye config.ini",
               "config.ini" in open(gi, encoding="utf-8").read())
+
+    print("\n=== Renombrado a cubos y API de libreria ===")
+
+    # --- CLI: la sintaxis vieja avisa en vez de fallar raro ---
+    rc, out = run(stub, ["-r", "port5"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-r port5 sugiere cube5",
+          "ya no existe" in out and "cube5" in out, out)
+
+    rc, out = run(stub, ["-w", "port5,1"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-w port5,1 sugiere cube5 SIN conectar a la red",
+          "ya no existe" in out and "cube5" in out
+          and "credenciales" not in out, out)
+
+    rc, out = run(stub, ["-r", "ports"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-r ports ya no es un comando",
+          "no es un comando de lectura" in out and "cubes" in out, out)
+
+    for bad in ("cube0", "cube9"):
+        rc, out = run(stub, ["-r", bad], {"POEHAL_CONFIG": "/nonexistent"})
+        check("-r " + bad + " da fuera de rango",
+              "fuera de rango" in out, out)
+
+    rc, out = run(stub, ["-w", "cube9,1"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-w cube9,1 valida el rango antes de conectar",
+          "fuera de rango" in out and "credenciales" not in out, out)
+
+    rc, out = run(stub, ["help"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("la ayuda habla de cubos, no de puertos",
+          "cube3" in out and "-r cubes" in out and "port3" not in out, out)
+
+    # --- Libreria ---
+    api = ("import poeHal as hal;"
+           "faltan=[n for n in hal.__all__ if not hasattr(hal,n)];"
+           "atajos=[n for n in dir(hal) if n.startswith('cube')"
+           " and n[4:5].isdigit()];"
+           "print('FALTAN=%s' % faltan);"
+           "print('ATAJOS=%d' % len(atajos))")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=api)
+    check("import poeHal no abre ninguna conexion", rc == 0, out)
+    check("todo lo declarado en __all__ existe", "FALTAN=[]" in out, out)
+    check("estan las 24 funciones cubeNOn/Off/Restart",
+          "ATAJOS=24" in out, out)
+
+    lazy = ("import poeHal as hal\n"
+            "try:\n"
+            "    hal.cube1On()\n"
+            "except hal.ConfigError:\n"
+            "    print('LANZO_CONFIGERROR')\n"
+            "print('PROCESO_VIVO')\n")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=lazy)
+    check("cubeNOn sin credenciales lanza ConfigError",
+          "LANZO_CONFIGERROR" in out, out)
+    check("la libreria no termina el proceso",
+          rc == 0 and "PROCESO_VIVO" in out, out)
+
+    rng = ("import poeHal as hal\n"
+           "try:\n"
+           "    hal.cubeOn(9)\n"
+           "except ValueError as e:\n"
+           "    print('VALUEERROR')\n")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=rng)
+    check("cubeOn(9) valida el rango sin tocar la red",
+          "VALUEERROR" in out, out)
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)

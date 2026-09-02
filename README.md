@@ -1,8 +1,10 @@
 # poeHal
 
-CLI tool para monitoreo y control de puertos PoE en el switch **PLANET IGS-4215-8UP2T2S**.
+CLI y librería Python para monitoreo y control de cubos PoE en el switch **PLANET IGS-4215-8UP2T2S**.
 
-Usa SNMP + Web Scraping para obtener datos en tiempo real de consumo, corriente, temperatura y estado de cada puerto PoE++.
+Los 8 puertos PoE++ se exponen como **cube1 .. cube8**.
+
+Usa SNMP + Web Scraping para obtener datos en tiempo real de consumo, corriente, temperatura y estado de cada cubo.
 
 ---
 
@@ -16,11 +18,11 @@ sudo ./install.sh
 ```
 
 El instalador automáticamente:
-- Verifica e instala Python 3.11+ si no está presente
-- Crea un entorno virtual aislado en `/opt/poeHal/venv/`
-- Instala todas las dependencias dentro del venv
-- Registra el comando `poeHal` en el PATH del sistema
-- Crea `/etc/poeHal/config.ini` con permisos `600` (solo root)
+- Verifica que haya un Python compatible (**3.8 a 3.11**)
+- Instala el paquete en tu home con `pip install --user`
+- Deja disponibles el comando `poeHal` **y** el `import poeHal`
+- Limpia la instalación antigua (`/opt/poeHal` y su wrapper)
+- Crea `/etc/poeHal/config.ini` con permisos `600`
 
 Después de instalar, **editar las credenciales** y ejecutar desde cualquier
 directorio:
@@ -39,16 +41,19 @@ sudo ./uninstall.sh
 ## Instalación en Windows
 
 1. Instalar [Python 3.11](https://www.python.org/downloads/) (marcar "Add to PATH")
-2. Abrir una terminal en la carpeta del proyecto e instalar dependencias:
+2. Abrir una terminal en la carpeta del proyecto e instalar el paquete:
 ```cmd
-py -3.11 -m pip install -r requirements.txt
+py -3.11 -m pip install --user .
 ```
-3. Agregar la carpeta del proyecto al PATH del sistema, o copiar `poeHal.bat` y `poeHal.py` a una carpeta que ya esté en el PATH (ej: `C:\Program Files\poeHal\`)
 
-Después de instalar, ejecutar desde cualquier directorio:
+Eso deja el comando `poeHal` y el `import poeHal` disponibles. Después,
+desde cualquier directorio:
 ```cmd
 poeHal -r status
 ```
+
+Las credenciales van en `%USERPROFILE%\.config\poeHal\config.ini`, o en las
+variables `POEHAL_USER` / `POEHAL_PASS`.
 
 ---
 
@@ -57,8 +62,8 @@ poeHal -r status
 ```bash
 # Lectura
 poeHal -r status              # Resumen rápido
-poeHal -r ports               # Tabla detallada de puertos
-poeHal -r port3               # Detalle del puerto 3
+poeHal -r cubes               # Tabla detallada de cubos
+poeHal -r cube3               # Detalle del cubo 3
 poeHal -r power               # Datos de potencia
 poeHal -r system              # Info del sistema
 poeHal -r watch,5             # Monitor en vivo cada 5s
@@ -66,19 +71,75 @@ poeHal -r csv                 # Exportar snapshot a CSV
 poeHal -r log                 # Agregar línea al log continuo
 
 # Escritura
-poeHal -w port3,1             # Habilitar puerto 3
-poeHal -w port3,0             # Deshabilitar puerto 3
-poeHal -w port3,r             # Reiniciar puerto 3 (off/on 5s)
-poeHal -w port3,r,10          # Reiniciar con espera de 10s
-poeHal -w port1,1 port5,0    # Múltiples puertos a la vez
+poeHal -w cube3,1             # Encender cubo 3
+poeHal -w cube3,0             # Apagar cubo 3
+poeHal -w cube3,r             # Reiniciar cubo 3 (off/on 5s)
+poeHal -w cube3,r,10          # Reiniciar con espera de 10s
+poeHal -w cube1,1 cube5,0     # Múltiples cubos a la vez
 
 # Ayuda
 poeHal help
 ```
 
+> La sintaxis vieja `portN` ya no existe. Si la usas, poeHal te indica el
+> `cubeN` equivalente.
+
+## Uso como librería Python
+
+```python
+import poeHal as hal
+
+hal.cube1On()               # encender
+hal.cube1Off()              # apagar
+hal.cube1Restart()          # off, espera 5s, on
+hal.cube1Restart(wait=10)   # con espera propia
+```
+
+Están las 24 variantes, de `cube1On()` a `cube8Restart()`. También las
+genéricas, útiles para iterar:
+
+```python
+for n in range(5, 9):
+    hal.cubeOff(n)
+```
+
+Lectura:
+
+```python
+hal.power()      # {'pse': 'ON', 'nominal_W': 360, 'consumed_W': 47, 'percent': 13.1}
+hal.cubes()      # lista de los 8 cubos: mA, W, prioridad, clase PD...
+hal.cube(3)      # solo el cubo 3
+hal.status()     # potencia + temperaturas + los 8 cubos
+hal.system()     # descripción, nombre y uptime por SNMP
+```
+
+Las credenciales salen de la configuración normal, así que no hay que pasarlas.
+Para apuntar a otro switch en runtime:
+
+```python
+hal.configure(host="192.168.1.50")
+hal.reset()      # fuerza reconexión
+```
+
+### Errores
+
+La librería **lanza excepciones**, no termina el proceso:
+
+```python
+try:
+    hal.cube1On()
+except hal.ConfigError:
+    ...   # faltan credenciales, o el config tiene permisos inseguros
+except hal.ConnectionFailed:
+    ...   # el switch no responde, o el login fue rechazado
+```
+
+Ambas heredan de `hal.PoEHalError`. La conexión es perezosa: `import poeHal`
+no toca la red, la primera llamada real es la que conecta.
+
 ## Requisitos
 
-- **Python 3.11+** (en Linux el instalador lo resuelve automáticamente)
+- **Python 3.8 a 3.11** (`pysnmp` 4.4.12 no funciona en 3.12+)
 - Acceso de red al switch (192.168.1.103)
 - SNMP habilitado en el switch (community: public)
 - **Linux:** Ubuntu / Debian / Raspberry Pi OS (64-bit)
@@ -168,30 +229,36 @@ quedó en la versión correcta:
 Luego, la prueba de credenciales:
 
 ```bash
-poeHal -r ports
+poeHal -r cubes
 ```
 
-> **Ojo:** si `-r ports` no imprime nada, es un **fallo**, no un éxito. El
+> **Ojo:** si `-r cubes` no imprime nada, es un **fallo**, no un éxito. El
 > comando no muestra nada cuando el scraping falla, así que la salida vacía
 > significa que el login fue rechazado.
 
-Para los comandos de escritura, usar solo puertos sin dispositivos conectados:
+Para los comandos de escritura, usar solo cubos sin dispositivos conectados:
 cada escritura reenvía la configuración de los 8 puertos, así que conviene
-comparar `poeHal -r ports` antes y después para confirmar que solo cambió el
-puerto que se tocó.
+comparar `poeHal -r cubes` antes y después para confirmar que solo cambió el
+cubo que se tocó.
 
 ## Estructura del proyecto
 
 ```
 poeHal/
-├── poeHal.py           # Script principal
-├── poeHal.bat          # Launcher para Windows
+├── poeHal/
+│   ├── __init__.py     # API publica: cubeNOn/Off/Restart, status, power, cubes
+│   ├── cli.py          # Comandos y punto de entrada del CLI
+│   ├── clients.py      # SNMPClient, WebPoEClient, connect()
+│   ├── config.py       # Carga de configuración y credenciales
+│   ├── display.py      # Salida en texto plano
+│   └── errors.py       # PoEHalError, ConfigError, ConnectionFailed
+├── pyproject.toml      # Metadata del paquete y entry point del CLI
 ├── config.ini.example  # Plantilla de configuración (sin credenciales reales)
-├── requirements.txt    # Dependencias Python
-├── install.sh          # Instalador Linux (venv + comando global + config 600)
+├── requirements.txt    # Dependencias (equivalente a las del pyproject)
+├── install.sh          # Instalador Linux (pip --user + config 600)
 ├── uninstall.sh        # Desinstalador Linux
 ├── .gitignore          # Protege config.ini y artefactos locales
 ├── tests/
-│   └── test_config.py  # Pruebas de la capa de configuración (sin switch)
+│   └── test_config.py  # Pruebas sin switch ni red
 └── README.md
 ```

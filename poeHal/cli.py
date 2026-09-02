@@ -43,15 +43,15 @@ def cmd_status():
         show_port_table(poe_data["ports"])
 
 
-def cmd_ports():
+def cmd_cubes():
     _, web = connect()
     poe_data = web.fetch_poe_data()
     if poe_data:
-        header("Puertos PoE - Detalle completo")
+        header("Cubos PoE - Detalle completo")
         show_port_table(poe_data["ports"], compact=False)
 
 
-def cmd_port(port_num):
+def cmd_cube(port_num):
     _, web = connect()
     poe_data = web.fetch_poe_data()
     if poe_data:
@@ -59,7 +59,7 @@ def cmd_port(port_num):
         if 0 <= idx < len(poe_data["ports"]):
             show_port_detail(poe_data["ports"][idx])
         else:
-            print("  Puerto " + str(port_num) + " no existe (rango 1-" + str(poe_data["numPorts"]) + ")")
+            print("  Cube " + str(port_num) + " no existe (rango 1-" + str(poe_data["numPorts"]) + ")")
 
 
 def cmd_power():
@@ -78,7 +78,7 @@ def cmd_power():
     poe_data = web.fetch_poe_data()
     if poe_data:
         print("")
-        print("  Port      mA    Watts")
+        print("  Cube      mA    Watts")
         print("  " + "-" * 24)
         for p in poe_data["ports"]:
             ind = ">" if p["power_W"] > 0 else " "
@@ -100,7 +100,7 @@ def cmd_system():
     if poe_data:
         print("")
         show_dict({
-            "Puertos PoE":    poe_data["numPorts"],
+            "Cubos PoE":      poe_data["numPorts"],
             "Power Budget":   str(poe_data["powerBudget"]) + " W",
             "Max Budget":     str(poe_data["maxBudget"]) + " W",
             "Admin":          "Enabled" if poe_data["poeAdmin"] == 0 else "Disabled",
@@ -157,7 +157,7 @@ def cmd_csv():
                      poe_data["temperature0"],
                      poe_data["temperature1"]])
         w.writerow([])
-        w.writerow(["port", "enabled", "current_mA", "power_W", "max_W",
+        w.writerow(["cube", "enabled", "current_mA", "power_W", "max_W",
                      "priority", "pd_type", "inline_mode", "pd_class", "extend"])
         for p in poe_data["ports"]:
             w.writerow([p["port"], p["enabled"], p["current_mA"],
@@ -180,7 +180,8 @@ def cmd_log():
         if not file_exists:
             cols = ["timestamp", "total_W", "budget_W", "temp0", "temp1"]
             for i in range(poe_data["numPorts"]):
-                cols.extend(["p" + str(i + 1) + "_mA", "p" + str(i + 1) + "_W"])
+                cols.extend(["cube" + str(i + 1) + "_mA",
+                             "cube" + str(i + 1) + "_W"])
             w.writerow(cols)
         row = [now,
                poe_snmp.get("pethMainPseConsumptionPower", 0),
@@ -207,8 +208,8 @@ def cmd_help():
     print("")
     print("  LECTURA (-r):")
     print("    poeHal -r status              Resumen rapido")
-    print("    poeHal -r ports               Tabla detallada de puertos")
-    print("    poeHal -r port3               Detalle del puerto 3")
+    print("    poeHal -r cubes               Tabla detallada de cubos")
+    print("    poeHal -r cube3               Detalle del cubo 3")
     print("    poeHal -r power               Solo datos de potencia")
     print("    poeHal -r system              Info del sistema")
     print("    poeHal -r watch               Refresh cada 5 segundos")
@@ -217,16 +218,16 @@ def cmd_help():
     print("    poeHal -r log                 Agregar linea al log continuo")
     print("")
     print("  ESCRITURA (-w):")
-    print("    poeHal -w port3,1             Habilitar puerto 3")
-    print("    poeHal -w port3,0             Deshabilitar puerto 3")
-    print("    poeHal -w port3,r             Reiniciar puerto 3 (off/on 5s)")
-    print("    poeHal -w port3,r,10          Reiniciar puerto 3, espera 10s")
-    print("    poeHal -w port1,1 port5,0     Multiples puertos a la vez")
-    print("    poeHal -w port1,r port2,r     Reiniciar multiples puertos")
+    print("    poeHal -w cube3,1             Habilitar cubo 3")
+    print("    poeHal -w cube3,0             Deshabilitar cubo 3")
+    print("    poeHal -w cube3,r             Reiniciar cubo 3 (off/on 5s)")
+    print("    poeHal -w cube3,r,10          Reiniciar cubo 3, espera 10s")
+    print("    poeHal -w cube1,1 cube5,0     Multiples cubos a la vez")
+    print("    poeHal -w cube1,r cube2,r     Reiniciar multiples cubos")
     print("")
     print("  FORMATO -w:")
-    print("    port[1-8],[0|1|r]              0=disable, 1=enable, r=restart")
-    print("    port[1-8],r,[seg]              restart con espera personalizada")
+    print("    cube[1-8],[0|1|r]              0=disable, 1=enable, r=restart")
+    print("    cube[1-8],r,[seg]              restart con espera personalizada")
     print("")
     print("  AYUDA:")
     print("    poeHal help")
@@ -234,9 +235,9 @@ def cmd_help():
     print("  EJEMPLOS:")
     print("    poeHal -r status")
     print("    poeHal -r watch,3")
-    print("    poeHal -w port1,1")
-    print("    poeHal -w port5,0 port6,0")
-    print("    poeHal -w port3,r,15")
+    print("    poeHal -w cube1,1")
+    print("    poeHal -w cube5,0 cube6,0")
+    print("    poeHal -w cube3,r,15")
     print("")
 
 
@@ -269,17 +270,24 @@ def main():
 
         cmd = sys.argv[2].lower()
         args = sys.argv[3:]
-        read_cmds = ["status", "ports", "power", "system", "csv", "log"]
+        read_cmds = ["status", "cubes", "power", "system", "csv", "log"]
 
-        # Verificar si es PortN
-        port_match = re.match("port(\\d+)", cmd)
+        # Sintaxis vieja: portN se renombro a cubeN
+        legacy = re.match("port(\\d+)$", cmd)
+        if legacy:
+            print("  [ERROR] 'port" + legacy.group(1) + "' ya no existe: "
+                  + "los puertos se llaman cubos.")
+            print("  Usa: poeHal -r cube" + legacy.group(1))
+            return
 
-        if port_match:
-            port_num = int(port_match.group(1))
-            if port_num < 1 or port_num > 8:
-                print("  [ERROR] Puerto " + str(port_num) + " fuera de rango (1-8)")
+        cube_match = re.match("cube(\\d+)$", cmd)
+
+        if cube_match:
+            cube_num = int(cube_match.group(1))
+            if cube_num < 1 or cube_num > 8:
+                print("  [ERROR] Cube " + str(cube_num) + " fuera de rango (1-8)")
                 return
-            cmd_port(port_num)
+            cmd_cube(cube_num)
             return
         elif cmd.startswith("watch"):
             parts = cmd.split(",")
@@ -288,13 +296,13 @@ def main():
             return
         elif cmd not in read_cmds:
             print("  [ERROR] '" + cmd + "' no es un comando de lectura")
-            print("  Comandos -r: " + ", ".join(read_cmds) + ", port[1-8], watch[,seg]")
+            print("  Comandos -r: " + ", ".join(read_cmds) + ", cube[1-8], watch[,seg]")
             return
 
         if cmd == "status":
             cmd_status()
-        elif cmd == "ports":
-            cmd_ports()
+        elif cmd == "cubes":
+            cmd_cubes()
         elif cmd == "power":
             cmd_power()
         elif cmd == "system":
@@ -308,41 +316,66 @@ def main():
         args = sys.argv[2:]
 
         if not args:
-            print("  [ERROR] Falta el parametro de puerto")
-            print("  Formato: poeHal -w port[1-8],[0|1|r]")
-            print("  Ejemplo: poeHal -w port3,1")
+            print("  [ERROR] Falta el parametro de cubo")
+            print("  Formato: poeHal -w cube[1-8],[0|1|r]")
+            print("  Ejemplo: poeHal -w cube3,1")
             return
 
-        _, web = connect()
-
+        # Primero validar TODO, despues conectar: asi un error de sintaxis
+        # no espera por la red, y no se ejecuta media orden.
+        plan = []
         for arg in args:
             arg_upper = arg.upper()
-            match = re.match("PORT(\\d+),(.+)", arg_upper)
 
-            if not match:
-                print("  [ERROR] Formato invalido: '" + arg + "'")
-                print("  Formato: port[1-8],[0|1|r]  Ejemplo: port3,1")
+            legacy = re.match("PORT(\\d+),", arg_upper)
+            if legacy:
+                print("  [ERROR] 'port" + legacy.group(1) + "' ya no existe: "
+                      + "los puertos se llaman cubos.")
+                print("  Usa: " + arg.lower().replace("port", "cube", 1))
                 return
 
-            port_num = int(match.group(1))
+            match = re.match("CUBE(\\d+),(.+)", arg_upper)
+            if not match:
+                print("  [ERROR] Formato invalido: '" + arg + "'")
+                print("  Formato: cube[1-8],[0|1|r]  Ejemplo: cube3,1")
+                return
+
+            cube_num = int(match.group(1))
             action_str = match.group(2)
 
-            if port_num < 1 or port_num > 8:
-                print("  [ERROR] Puerto " + str(port_num) + " fuera de rango (1-8)")
+            if cube_num < 1 or cube_num > 8:
+                print("  [ERROR] Cube " + str(cube_num) + " fuera de rango (1-8)")
                 return
 
             if action_str == "1":
-                web.set_port_state(port_num, True)
+                plan.append((cube_num, "on", 0))
             elif action_str == "0":
-                web.set_port_state(port_num, False)
+                plan.append((cube_num, "off", 0))
             elif action_str.startswith("R"):
                 parts = action_str.split(",")
-                wait = int(parts[1]) if len(parts) > 1 else 5
-                web.restart_port(port_num, wait)
+                try:
+                    wait = int(parts[1]) if len(parts) > 1 else 5
+                except ValueError:
+                    print("  [ERROR] Espera invalida en '" + arg + "'")
+                    return
+                plan.append((cube_num, "restart", wait))
             else:
-                print("  [ERROR] Accion invalida: '" + action_str + "' en '" + arg + "'")
+                # mostrar la accion como la escribio el usuario, no en mayusculas
+                shown = arg.split(",", 1)[1] if "," in arg else action_str
+                print("  [ERROR] Accion invalida: '" + shown
+                      + "' en '" + arg + "'")
                 print("  Acciones: 0=disable, 1=enable, r=restart")
                 return
+
+        _, web = connect()
+
+        for cube_num, action, wait in plan:
+            if action == "on":
+                web.set_port_state(cube_num, True)
+            elif action == "off":
+                web.set_port_state(cube_num, False)
+            else:
+                web.restart_port(cube_num, wait)
 
         print("")
 

@@ -242,13 +242,13 @@ class WebPoEClient:
     def set_port_state(self, port_number, enable):
         if port_number < 1 or port_number > 8:
             if self.verbose:
-                print("  Port" + str(port_number) + ": Error - puerto invalido")
+                print("  Cube" + str(port_number) + ": Error - puerto invalido")
             return False
         try:
             html = self._get_poe_page()
             if not html:
                 if self.verbose:
-                    print("  Port" + str(port_number) + ": Error - no se pudo leer estado")
+                    print("  Cube" + str(port_number) + ": Error - no se pudo leer estado")
                 return False
 
             idx = port_number - 1
@@ -303,23 +303,23 @@ class WebPoEClient:
                 expected = "1" if enable else "0"
                 if actual == expected:
                     if self.verbose:
-                        print("  Port" + str(port_number) + ": " + old_str + " -> " + new_str + " : OK")
+                        print("  Cube" + str(port_number) + ": " + old_str + " -> " + new_str + " : OK")
                     return True
                 else:
                     if self.verbose:
-                        print("  Port" + str(port_number) + ": " + old_str + " -> " + new_str + " : FAIL")
+                        print("  Cube" + str(port_number) + ": " + old_str + " -> " + new_str + " : FAIL")
                     return False
             if self.verbose:
-                print("  Port" + str(port_number) + ": " + old_str + " -> " + new_str + " : OK")
+                print("  Cube" + str(port_number) + ": " + old_str + " -> " + new_str + " : OK")
             return True
         except Exception as e:
             if self.verbose:
-                print("  Port" + str(port_number) + ": Error - " + str(e))
+                print("  Cube" + str(port_number) + ": Error - " + str(e))
             return False
 
     def restart_port(self, port_number, wait=5):
         if self.verbose:
-            print("  Port" + str(port_number) + ": Restart (espera " + str(wait) + "s)...")
+            print("  Cube" + str(port_number) + ": Restart (espera " + str(wait) + "s)...")
         if self.set_port_state(port_number, False):
             time.sleep(wait)
             return self.set_port_state(port_number, True)
