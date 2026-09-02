@@ -1,3 +1,14 @@
+Metadata-Version: 2.4
+Name: poeHal
+Version: 2.1.0
+Summary: Monitoreo y control de puertos PoE en el switch PLANET IGS-4215-8UP2T2S
+Requires-Python: <3.12,>=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: pysnmp==4.4.12
+Requires-Dist: pyasn1==0.4.8
+Requires-Dist: pyasn1-modules==0.2.8
+Requires-Dist: requests>=2.28.0
+
 # poeHal
 
 CLI y librería Python para monitoreo y control de cubos PoE en el switch **PLANET IGS-4215-8UP2T2S**.
@@ -120,22 +131,6 @@ Para apuntar a otro switch en runtime:
 hal.configure(host="192.168.1.50")
 hal.reset()      # fuerza reconexión
 ```
-
-### Ejemplos ejecutables
-
-En `examples/` hay dos scripts listos para correr en el RevPi:
-
-```bash
-python3 examples/minimo.py                    # 4 lineas: on, espera, off
-python3 examples/prueba_paquete.py            # recorre toda la API, solo lectura
-python3 examples/prueba_paquete.py --cube 5   # + prueba escritura en el cubo 5
-```
-
-`prueba_paquete.py` es seguro por defecto: solo lee. La escritura hay que
-pedirla con `--cube N`, y se niega a tocar los cubos 1 a 4 (que suelen tener
-dispositivos conectados) salvo que agregues `--force`. Después de escribir
-compara los otros 7 cubos contra un snapshot previo, que es la comprobación
-que importa: cada escritura reenvía la configuración de los 8 puertos.
 
 ### Errores
 
@@ -274,9 +269,6 @@ poeHal/
 ├── install.sh          # Instalador Linux (pip --user + config 600)
 ├── uninstall.sh        # Desinstalador Linux
 ├── .gitignore          # Protege config.ini y artefactos locales
-├── examples/
-│   ├── minimo.py       # Ejemplo minimo: on / off
-│   └── prueba_paquete.py  # Recorrido completo de la API
 ├── tests/
 │   └── test_config.py  # Pruebas sin switch ni red
 └── README.md
