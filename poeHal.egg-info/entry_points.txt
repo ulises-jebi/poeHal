@@ -1,2 +1,0 @@
-[console_scripts]
-poeHal = poeHal.cli:run

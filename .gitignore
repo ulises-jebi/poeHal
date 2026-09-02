@@ -12,6 +12,11 @@ __pycache__/
 venv/
 .venv/
 
+# Artefactos de build del paquete
+*.egg-info/
+build/
+dist/
+
 # Artefactos del sistema operativo / Google Drive
 .DS_Store
 desktop.ini
