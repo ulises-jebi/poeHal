@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "poeHal"
+version = "2.0.0"
+description = "Monitoreo y control de puertos PoE en el switch PLANET IGS-4215-8UP2T2S"
+readme = "README.md"
+# pysnmp 4.4.12 importa asyncore, removido en Python 3.12: el tope es real.
+requires-python = ">=3.8,<3.12"
+dependencies = [
+    "pysnmp==4.4.12",
+    "pyasn1==0.4.8",
+    "pyasn1-modules==0.2.8",
+    "requests>=2.28.0",
+]
+
+[project.scripts]
+poeHal = "poeHal.cli:run"
+
+[tool.setuptools]
+packages = ["poeHal"]

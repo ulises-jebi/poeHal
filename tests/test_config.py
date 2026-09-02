@@ -16,7 +16,8 @@ import textwrap
 
 REPO = (sys.argv[1] if len(sys.argv) > 1
         else os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCRIPT = os.path.join(REPO, "poeHal.py")
+PKG = os.path.join(REPO, "poeHal")
+CONFIG_SRC = os.path.join(PKG, "config.py")
 
 results = []
 
@@ -53,11 +54,11 @@ def run(stub_dir, args, env_extra=None, code=None):
               "POEHAL_COMMUNITY", "POEHAL_CONFIG"):
         env.pop(k, None)
     env.update(env_extra or {})
+    env["PYTHONPATH"] = stub_dir + os.pathsep + REPO
     if code:
         cmd = [sys.executable, "-c", code]
-        env["PYTHONPATH"] = stub_dir + os.pathsep + REPO
     else:
-        cmd = [sys.executable, SCRIPT] + args
+        cmd = [sys.executable, "-m", "poeHal.cli"] + args
     p = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=REPO)
     return p.returncode, p.stdout + p.stderr
 
@@ -72,8 +73,8 @@ def check(name, condition, detail=""):
 
 
 def main():
-    if not os.path.isfile(SCRIPT):
-        print("No se encontro " + SCRIPT)
+    if not os.path.isfile(CONFIG_SRC):
+        print("No se encontro " + CONFIG_SRC)
         return 1
 
     tmp = tempfile.mkdtemp(prefix="poehal-test-")
@@ -109,14 +110,14 @@ def main():
     # 3. el codigo fuente no contiene credenciales
     #    Generico a proposito: no se escribe ningun password real en este
     #    archivo, porque tambien se sube al repositorio.
-    src = open(SCRIPT, encoding="utf-8").read()
+    src = open(CONFIG_SRC, encoding="utf-8").read()
     hardcoded = [v for v in
                  re.findall(r'"web_(?:user|pass)"\s*:\s*"([^"]+)"', src)
                  if not v.startswith("POEHAL_")]   # ENV_OVERRIDES no son credenciales
-    check("poeHal.py no tiene credenciales hardcodeadas",
+    check("config.py no tiene credenciales hardcodeadas",
           not hardcoded,
           "encontrado: " + repr(hardcoded))
-    check("poeHal.py lee las credenciales de la configuracion",
+    check("config.py lee las credenciales de la configuracion",
           "POEHAL_USER" in src and "configparser" in src)
 
     # 4. permisos 600 -> aceptado

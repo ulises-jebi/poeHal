@@ -3,14 +3,13 @@ set -e
 
 # ============================================
 #  poeHal - Desinstalador
-#  PLANET IGS-4215-8UP2T2S PoE++ CLI Tool
 # ============================================
 
 APP_NAME="poeHal"
-APP_DIR="/opt/$APP_NAME"
-BIN_LINK="/usr/local/bin/$APP_NAME"
 CONFIG_DIR="/etc/$APP_NAME"
 CONFIG_FILE="$CONFIG_DIR/config.ini"
+OLD_APP_DIR="/opt/$APP_NAME"
+OLD_BIN_LINK="/usr/local/bin/$APP_NAME"
 
 echo ""
 echo "========================================"
@@ -24,24 +23,31 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# --- Eliminar comando global ---
-if [ -f "$BIN_LINK" ]; then
-    rm -f "$BIN_LINK"
-    echo "[1/2] Comando '$APP_NAME' eliminado de PATH"
-else
-    echo "[1/2] Comando '$APP_NAME' no encontrado (ya removido)"
+TARGET_USER="${SUDO_USER:-$USER}"
+
+# --- Paquete pip del usuario ---
+PIP_ARGS=""
+if python3 -m pip uninstall --help 2>/dev/null | grep -q "break-system-packages"; then
+    PIP_ARGS="--break-system-packages"
 fi
 
-# --- Eliminar directorio de instalacion ---
-if [ -d "$APP_DIR" ]; then
-    rm -rf "$APP_DIR"
-    echo "[2/2] Directorio $APP_DIR eliminado"
+if sudo -u "$TARGET_USER" python3 -m pip uninstall -y $PIP_ARGS "$APP_NAME" > /dev/null 2>&1; then
+    echo "[1/3] Paquete '$APP_NAME' desinstalado de $TARGET_USER"
 else
-    echo "[2/2] Directorio $APP_DIR no encontrado (ya removido)"
+    echo "[1/3] Paquete '$APP_NAME' no estaba instalado para $TARGET_USER"
 fi
 
-echo ""
-echo "  $APP_NAME desinstalado."
+# --- Restos de la instalacion vieja (venv en /opt + wrapper) ---
+CLEANED=0
+if [ -f "$OLD_BIN_LINK" ]; then rm -f "$OLD_BIN_LINK"; CLEANED=1; fi
+if [ -d "$OLD_APP_DIR" ]; then rm -rf "$OLD_APP_DIR"; CLEANED=1; fi
+if [ "$CLEANED" -eq 1 ]; then
+    echo "[2/3] Instalacion antigua removida ($OLD_APP_DIR, $OLD_BIN_LINK)"
+else
+    echo "[2/3] Sin restos de instalaciones antiguas"
+fi
+
+echo "[3/3] Listo"
 echo ""
 
 # --- Configuracion: no se borra sola porque contiene credenciales ---
