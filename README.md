@@ -13,7 +13,6 @@ Usa SNMP + Web Scraping para obtener datos en tiempo real de consumo, corriente,
 ```bash
 git clone https://github.com/ulises-jebi/poeHal.git
 cd poeHal
-chmod +x install.sh uninstall.sh
 sudo ./install.sh
 ```
 
