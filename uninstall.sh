@@ -47,7 +47,19 @@ else
     echo "[2/3] Sin restos de instalaciones antiguas"
 fi
 
-echo "[3/3] Listo"
+# --- Script de prueba copiado al home ---
+TEST_DST="$(getent passwd "$TARGET_USER" | cut -d: -f6)/poeTest.py"
+TEST_SRC="$(pwd)/examples/minimo.py"
+if [ -f "$TEST_DST" ]; then
+    if [ -f "$TEST_SRC" ] && cmp -s "$TEST_SRC" "$TEST_DST"; then
+        rm -f "$TEST_DST"
+        echo "[3/3] $TEST_DST eliminado"
+    else
+        echo "[3/3] $TEST_DST conservado (fue modificado)"
+    fi
+else
+    echo "[3/3] Listo"
+fi
 echo ""
 
 # --- Configuracion: no se borra sola porque contiene credenciales ---

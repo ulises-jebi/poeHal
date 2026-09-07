@@ -23,6 +23,8 @@ El instalador automáticamente:
 - Deja disponibles el comando `poeHal` **y** el `import poeHal`
 - Limpia la instalación antigua (`/opt/poeHal` y su wrapper)
 - Crea `/etc/poeHal/config.ini` con permisos `600`
+- Copia `examples/minimo.py` al home como **`~/poeTest.py`**, para tener una
+  prueba rápida a mano sin entrar a la carpeta del proyecto
 
 Después de instalar, **editar las credenciales** y ejecutar desde cualquier
 directorio:
@@ -126,6 +128,7 @@ hal.reset()      # fuerza reconexión
 En `examples/` hay dos scripts listos para correr en el RevPi:
 
 ```bash
+python3 ~/poeTest.py                          # copia que deja el instalador
 python3 examples/minimo.py                    # 4 lineas: on, espera, off
 python3 examples/prueba_paquete.py            # recorre toda la API, solo lectura
 python3 examples/prueba_paquete.py --cube 5   # + prueba escritura en el cubo 5
@@ -235,11 +238,11 @@ no contiene credenciales.
 
 ### Contra el switch real
 
-Requiere Python 3.11 y acceso de red al switch. Verificar primero que el venv
-quedó en la versión correcta:
+Requiere Python 3.8-3.11 y acceso de red al switch. Verificar primero que el
+paquete quedó bien instalado:
 
 ```bash
-/opt/poeHal/venv/bin/python -c "import pysnmp.hlapi; print('OK')"
+python3 -c "import poeHal, pysnmp.hlapi; print('OK', poeHal.__version__)"
 ```
 
 Luego, la prueba de credenciales:
