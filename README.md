@@ -2,7 +2,10 @@
 
 CLI y librería Python para monitoreo y control de cubos PoE en el switch **PLANET IGS-4215-8UP2T2S**.
 
-Los 8 puertos PoE++ se exponen como **cube1 .. cube8**.
+Los cubos son los puertos PoE que los alimentan: **cube1 .. cube5**.
+
+Un solo modo de llamado, `component(dispositivo, parametro)`, igual que en
+upsHal.
 
 Usa SNMP + Web Scraping para obtener datos en tiempo real de consumo, corriente, temperatura y estado de cada cubo.
 
@@ -61,61 +64,97 @@ variables `POEHAL_USER` / `POEHAL_PASS`.
 ## Uso
 
 ```bash
+# Formato
+poeHal -r <dispositivo>,<PARAMETRO>
+poeHal -w <cubo>,<ON|OFF|RESTART[,seg]>
+
 # Lectura
-poeHal -r status              # Resumen rápido
-poeHal -r cubes               # Tabla detallada de cubos
-poeHal -r cube3               # Detalle del cubo 3
-poeHal -r power               # Datos de potencia
-poeHal -r system              # Info del sistema
-poeHal -r watch,5             # Monitor en vivo cada 5s
-poeHal -r csv                 # Exportar snapshot a CSV
-poeHal -r log                 # Agregar línea al log continuo
+poeHal -r cube1,STATUS        # todo el cubo 1
+poeHal -r cube1,POWER         # solo la potencia
+poeHal -r cube1               # igual que cube1,STATUS
+poeHal -r switch,POWER        # consumo total
+poeHal -r switch,STATUS       # agregados del switch
+poeHal -r components          # qué dispositivos y parámetros hay
 
 # Escritura
-poeHal -w cube3,1             # Encender cubo 3
-poeHal -w cube3,0             # Apagar cubo 3
-poeHal -w cube3,r             # Reiniciar cubo 3 (off/on 5s)
-poeHal -w cube3,r,10          # Reiniciar con espera de 10s
-poeHal -w cube1,1 cube5,0     # Múltiples cubos a la vez
+poeHal -w cube3,ON            # encender
+poeHal -w cube3,OFF           # apagar
+poeHal -w cube3,RESTART       # off, espera 5s, on
+poeHal -w cube3,RESTART,10    # con espera de 10s
+poeHal -w cube1,ON cube5,OFF  # varios cubos a la vez
+
+# Vistas
+poeHal -r status              # resumen rápido
+poeHal -r cubes               # tabla de los cubos
+poeHal -r power               # datos de potencia
+poeHal -r system              # info del sistema
+poeHal -r watch,5             # monitor en vivo
+poeHal -r csv                 # exportar snapshot
+poeHal -r log                 # línea al log continuo
 
 # Ayuda
 poeHal help
 ```
 
-> La sintaxis vieja `portN` ya no existe. Si la usas, poeHal te indica el
-> `cubeN` equivalente.
+> Las sintaxis viejas ya no existen y avisan el reemplazo: `portN` manda a
+> `cubeN`, y `cube3,1` manda a `cube3,ON`.
 
 ## Uso como librería Python
 
 ```python
 import poeHal as hal
+from poeHal import cube1, switch, ON, OFF, RESTART, STATUS, POWER
 
-hal.cube1On()               # encender
-hal.cube1Off()              # apagar
-hal.cube1Restart()          # off, espera 5s, on
-hal.cube1Restart(wait=10)   # con espera propia
+hal.component(cube1, ON)          # encender
+hal.component(cube1, OFF)         # apagar
+hal.component(cube1, RESTART)     # off, espera 5s, on
+hal.component(cube1, RESTART, wait=10)
 ```
 
-Están las 24 variantes, de `cube1On()` a `cube8Restart()`. También las
-genéricas, útiles para iterar:
-
-```python
-for n in range(5, 9):
-    hal.cubeOff(n)
-```
+Las acciones devuelven `True` si el switch confirmó el cambio.
 
 Lectura:
 
 ```python
-hal.power()      # {'pse': 'ON', 'nominal_W': 360, 'consumed_W': 47, 'percent': 13.1}
-hal.cubes()      # lista de los 8 cubos: mA, W, prioridad, clase PD...
-hal.cube(3)      # solo el cubo 3
-hal.status()     # potencia + temperaturas + los 8 cubos
-hal.system()     # descripción, nombre y uptime por SNMP
+hal.component(cube1, STATUS)   # dict con todos los parámetros del cubo
+hal.component(cube1, POWER)    # 10.7
+hal.component(switch, POWER)   # 44
+hal.component(switch, STATUS)  # potencia, temperaturas, uptime...
+hal.component(cube1)           # STATUS es el valor por defecto
 ```
 
-Las credenciales salen de la configuración normal, así que no hay que pasarlas.
-Para apuntar a otro switch en runtime:
+También acepta texto, útil al leer de un archivo o de la línea de comandos:
+
+```python
+hal.component("cube1", "ON")
+```
+
+### Qué se puede pedir
+
+```python
+hal.devices()               # {'cube1': 'Cubo 1 (puerto PoE 1)', ..., 'switch': ...}
+hal.parameters(cube1)       # los parámetros válidos para un cubo
+hal.describe(POWER)         # {'name': 'POWER', 'label': 'Potencia', 'unit': 'W'}
+```
+
+| Dispositivo | Parámetros |
+|---|---|
+| `cube1` .. `cube5` | `STATUS`, `ENABLED`, `DELIVERING`, `POWER`, `CURRENT`, `MAXPOWER`, `PRIORITY`, `PDCLASS`, `PDTYPE`, `INLINE`, `EXTEND`, y las acciones `ON`, `OFF`, `RESTART` |
+| `switch` | `STATUS`, `PSE`, `NOMINAL`, `CONSUMED`, `PERCENT`, `BUDGET`, `TEMPERATURE`, `DESCR`, `NAME`, `UPTIME` |
+
+### Varias lecturas del mismo instante
+
+`refresh=False` reutiliza la lectura anterior en vez de volver a consultar el
+switch, así los valores son del mismo momento y es una sola consulta:
+
+```python
+primero = True
+for nombre in hal.CUBES:
+    print(nombre, hal.component(nombre, STATUS, refresh=primero))
+    primero = False
+```
+
+### Otro switch en runtime
 
 ```python
 hal.configure(host="192.168.1.50")
@@ -128,7 +167,7 @@ En `examples/` hay dos scripts listos para correr en el RevPi:
 
 ```bash
 python3 ~/poeTest.py                          # copia que deja el instalador
-python3 examples/minimo.py                    # 4 lineas: on, espera, off
+python3 examples/minimo.py                    # off, espera, on
 python3 examples/prueba_paquete.py            # recorre toda la API, solo lectura
 python3 examples/prueba_paquete.py --cube 5   # + prueba escritura en el cubo 5
 ```
@@ -136,8 +175,9 @@ python3 examples/prueba_paquete.py --cube 5   # + prueba escritura en el cubo 5
 `prueba_paquete.py` es seguro por defecto: solo lee. La escritura hay que
 pedirla con `--cube N`, y se niega a tocar los cubos 1 a 4 (que suelen tener
 dispositivos conectados) salvo que agregues `--force`. Después de escribir
-compara los otros 7 cubos contra un snapshot previo, que es la comprobación
-que importa: cada escritura reenvía la configuración de los 8 puertos.
+compara los otros 4 cubos contra un snapshot previo, que es la comprobación
+que importa: cada escritura reenvía la configuración de los 8 puertos del
+switch, aunque solo 5 se expongan como cubos.
 
 ### Errores
 
@@ -145,7 +185,7 @@ La librería **lanza excepciones**, no termina el proceso:
 
 ```python
 try:
-    hal.cube1On()
+    hal.component(cube1, ON)
 except hal.ConfigError:
     ...   # faltan credenciales, o el config tiene permisos inseguros
 except hal.ConnectionFailed:

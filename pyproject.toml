@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "poeHal"
-version = "2.1.0"
+version = "3.0.0"
 description = "Monitoreo y control de puertos PoE en el switch PLANET IGS-4215-8UP2T2S"
 readme = "README.md"
 # pysnmp 4.4.12 importa asyncore, removido en Python 3.12: el tope es real.

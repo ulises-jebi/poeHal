@@ -6,7 +6,7 @@ La escritura hay que pedirla explicitamente con --cube N.
 
 Uso:
     python3 prueba_paquete.py              # solo lectura
-    python3 prueba_paquete.py --cube 5     # lectura + prende/apaga el cubo 5
+    python3 prueba_paquete.py --cube 5     # lectura + apaga/prende el cubo 5
     python3 prueba_paquete.py --cube 5 --restart
     python3 prueba_paquete.py --cube 2 --force   # cubos 1-4: hay equipo real
 
@@ -20,6 +20,9 @@ import time
 
 try:
     import poeHal as hal
+    from poeHal import (
+        CUBES, OFF, ON, POWER, RESTART, STATUS, switch,
+    )
 except ImportError:
     print("[ERROR] No se pudo importar poeHal.")
     print("        Instalalo primero:  sudo ./install.sh")
@@ -30,6 +33,11 @@ except ImportError:
 # Los cubos 1-4 suelen tener dispositivos conectados: apagarlos los reinicia.
 CUBOS_CON_EQUIPO = (1, 2, 3, 4)
 
+# Los campos de configuracion que NO deben cambiar al tocar otro cubo.
+# La potencia y la corriente varian solas con la carga, compararlas daria
+# falsos positivos.
+CAMPOS_ESTABLES = ("ENABLED", "MAXPOWER", "PRIORITY", "PDTYPE", "INLINE")
+
 
 def titulo(texto):
     print("")
@@ -39,100 +47,98 @@ def titulo(texto):
 
 
 def prueba_lectura():
-    """Recorre toda la API de lectura."""
-    titulo("1. Version y configuracion")
+    """Recorre la API de lectura, en el formato component()."""
+    titulo("1. Version y catalogo")
     print("  poeHal version : " + hal.__version__)
     print("  switch         : " + hal.SWITCH_CONFIG["host"])
-    print("  usuario        : " + (hal.SWITCH_CONFIG["web_user"] or "(sin definir)"))
-    print("  cubos          : " + str(hal.NUM_CUBES))
+    print("  dispositivos   : " + ", ".join(hal.devices()))
+    print("")
+    print("  parametros de un cubo:")
+    print("    " + ", ".join(hal.parameters("cube1")))
+    print("  parametros del switch:")
+    print("    " + ", ".join(hal.parameters(switch)))
 
-    titulo("2. hal.system()  - info del switch por SNMP")
-    for clave, valor in hal.system().items():
-        print("  " + clave.ljust(12) + ": " + str(valor))
+    titulo("2. component(switch, STATUS)")
+    for clave, valor in hal.component(switch, STATUS).items():
+        info = hal.describe(clave, switch)
+        unidad = info.get("unit") or ""
+        print("  " + clave.ljust(12) + ": " + str(valor)
+              + (" " + unidad if unidad else ""))
 
-    titulo("3. hal.power()  - potencia agregada")
-    p = hal.power()
-    print("  PSE            : " + str(p["pse"]))
-    print("  nominal        : " + str(p["nominal_W"]) + " W")
-    print("  consumo        : " + str(p["consumed_W"]) + " W")
-    print("  uso            : " + str(p["percent"]) + " %")
+    titulo("3. Un parametro suelto")
+    print("  component(switch, POWER)     = "
+          + str(hal.component(switch, POWER)) + " W")
+    print("  component(cube1, POWER)      = "
+          + str(hal.component("cube1", POWER)) + " W")
+    print("  component(cube1, 'CURRENT')  = "
+          + str(hal.component("cube1", "CURRENT")) + " mA")
 
-    titulo("4. hal.cubes()  - los 8 cubos")
-    print("  Cube  Estado    mA      W   Alimentando")
-    print("  " + "-" * 44)
-    for c in hal.cubes():
-        alimentando = "SI" if c["current_mA"] > 0 else "no"
-        print("  " + str(c["cube"]).ljust(6)
-              + str(c["enabled"]).ljust(10)
-              + str(c["current_mA"]).rjust(4)
-              + ("%.1f" % c["power_W"]).rjust(7)
-              + "   " + alimentando)
+    titulo("4. Todos los cubos")
+    print("  Cube   Habilitado  Alimentando   mA       W")
+    print("  " + "-" * 46)
+    for nombre in CUBES:
+        # refresh solo en el primero: los demas reusan esa misma lectura,
+        # asi los cinco cubos son del mismo instante y no son 5 consultas.
+        primero = nombre == CUBES[0]
+        est = hal.component(nombre, STATUS, refresh=primero)
+        print("  " + nombre.ljust(7)
+              + str(est["ENABLED"]).ljust(12)
+              + str(est["DELIVERING"]).ljust(14)
+              + str(est["CURRENT"]).rjust(4)
+              + ("%.1f" % est["POWER"]).rjust(8))
 
-    titulo("5. hal.cube(1)  - un cubo puntual")
-    for clave, valor in hal.cube(1).items():
-        print("  " + str(clave).ljust(12) + ": " + str(valor))
 
-    titulo("6. hal.status()  - todo junto")
-    s = hal.status()
-    print("  host           : " + str(s["host"]))
-    print("  temperaturas   : " + str(s["temperature0"]) + " C / "
-          + str(s["temperature1"]) + " C")
-    print("  power budget   : " + str(s["power_budget_W"]) + " W")
-    print("  cubos en la respuesta: " + str(len(s["cubes"])))
+def _snapshot():
+    """Los campos estables de los 5 cubos, para comparar despues."""
+    salida = {}
+    for i, nombre in enumerate(CUBES):
+        est = hal.component(nombre, STATUS, refresh=(i == 0))
+        salida[nombre] = {c: est[c] for c in CAMPOS_ESTABLES}
+    return salida
 
 
 def prueba_escritura(numero, con_restart):
-    """Prende y apaga un cubo, verificando el estado despues de cada paso."""
-    titulo("7. Escritura sobre el cubo " + str(numero))
+    """Apaga y prende un cubo, verificando que no toque a los demas."""
+    nombre = "cube" + str(numero)
+    titulo("5. Escritura sobre " + nombre)
 
-    # Snapshot de los 8 cubos: cada escritura reenvia la configuracion
-    # completa, asi que hay que poder probar que solo cambio el que tocamos.
-    snapshot = {c["cube"]: c for c in hal.cubes()}
-    antes = snapshot[numero]
-    print("  estado inicial : " + str(antes["enabled"])
-          + "  (" + str(antes["current_mA"]) + " mA)")
+    antes = _snapshot()
+    print("  estado inicial : " + str(antes[nombre]["ENABLED"]))
 
-    # --- apagar ---
     print("")
-    print("  hal.cube" + str(numero) + "Off() ...")
-    ok = hal.cubeOff(numero)
+    print("  component(" + nombre + ", OFF) ...")
+    ok = hal.component(nombre, OFF)
     time.sleep(2)
-    ahora = hal.cube(numero)
     print("    resultado    : " + ("OK" if ok else "FALLO"))
-    print("    estado ahora : " + str(ahora["enabled"]))
+    print("    habilitado   : " + str(hal.component(nombre, "ENABLED")))
 
-    # --- prender ---
     print("")
-    print("  hal.cube" + str(numero) + "On() ...")
-    ok = hal.cubeOn(numero)
+    print("  component(" + nombre + ", ON) ...")
+    ok = hal.component(nombre, ON)
     time.sleep(2)
-    ahora = hal.cube(numero)
     print("    resultado    : " + ("OK" if ok else "FALLO"))
-    print("    estado ahora : " + str(ahora["enabled"]))
+    print("    habilitado   : " + str(hal.component(nombre, "ENABLED")))
 
     if con_restart:
         print("")
-        print("  hal.cube" + str(numero) + "Restart(wait=5) ...")
-        ok = hal.cubeRestart(numero, wait=5)
+        print("  component(" + nombre + ", RESTART, wait=5) ...")
+        ok = hal.component(nombre, RESTART, wait=5)
         print("    resultado    : " + ("OK" if ok else "FALLO"))
 
     # --- lo importante: los otros cubos no se movieron ---
     print("")
-    print("  Verificando que los otros " + str(hal.NUM_CUBES - 1)
+    print("  Verificando que los otros " + str(len(CUBES) - 1)
           + " cubos no cambiaron...")
-    # Solo campos de configuracion. mA y W varian solos segun la carga,
-    # compararlos daria falsos positivos.
-    campos = ("enabled", "max_W", "priority", "pd_type", "inline_mode")
+    despues = _snapshot()
     cambios = []
-    for c in hal.cubes():
-        n = c["cube"]
-        if n == numero:
+    for otro in CUBES:
+        if otro == nombre:
             continue
-        for campo in campos:
-            if c[campo] != snapshot[n][campo]:
-                cambios.append("cubo " + str(n) + ": " + campo + " "
-                               + str(snapshot[n][campo]) + " -> "
-                               + str(c[campo]))
+        for campo in CAMPOS_ESTABLES:
+            if antes[otro][campo] != despues[otro][campo]:
+                cambios.append(otro + ": " + campo + " "
+                               + str(antes[otro][campo]) + " -> "
+                               + str(despues[otro][campo]))
     if cambios:
         print("")
         print("    !!! EFECTO COLATERAL: se modificaron otros cubos")
@@ -140,7 +146,7 @@ def prueba_escritura(numero, con_restart):
             print("      " + linea)
         print("")
         print("    Esto significa que el scraping leyo mal la pagina y el")
-        print("    POST reescribio los 8 puertos con valores incorrectos.")
+        print("    POST reescribio los puertos con valores incorrectos.")
         return False
     print("    OK: los demas cubos quedaron identicos")
     return True
@@ -150,17 +156,17 @@ def main():
     ap = argparse.ArgumentParser(
         description="Prueba del paquete poeHal (por defecto solo lectura)")
     ap.add_argument("--cube", type=int, metavar="N",
-                    help="prueba escritura sobre el cubo N (1-8)")
+                    help="prueba escritura sobre el cubo N (1-%d)" % len(CUBES))
     ap.add_argument("--restart", action="store_true",
-                    help="incluye cubeNRestart() en la prueba de escritura")
+                    help="incluye RESTART en la prueba de escritura")
     ap.add_argument("--force", action="store_true",
                     help="permite escribir en los cubos 1-4, que suelen "
                          "tener dispositivos conectados")
     args = ap.parse_args()
 
     if args.cube is not None:
-        if not 1 <= args.cube <= hal.NUM_CUBES:
-            print("[ERROR] --cube debe estar entre 1 y " + str(hal.NUM_CUBES))
+        if not 1 <= args.cube <= len(CUBES):
+            print("[ERROR] --cube debe estar entre 1 y " + str(len(CUBES)))
             return 2
         if args.cube in CUBOS_CON_EQUIPO and not args.force:
             print("")
@@ -187,7 +193,7 @@ def main():
                 print("")
                 return 1
         else:
-            titulo("7. Escritura")
+            titulo("5. Escritura")
             print("  Omitida. Para probarla, elige un cubo libre:")
             print("    python3 prueba_paquete.py --cube 5")
 
@@ -206,7 +212,7 @@ def main():
         print("")
         print("[ERROR de conexion] " + str(e))
         print("")
-        print("  Revisa que el RevPi alcance el switch:")
+        print("  Revisa que el equipo alcance el switch:")
         print("    ping -c 2 " + hal.SWITCH_CONFIG["host"])
         print("")
         return 1

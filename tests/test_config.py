@@ -192,7 +192,7 @@ def main():
         check(".gitignore incluye config.ini",
               "config.ini" in open(gi, encoding="utf-8").read())
 
-    print("\n=== Renombrado a cubos y API de libreria ===")
+    print("\n=== Formato component() ===")
 
     # --- CLI: la sintaxis vieja avisa en vez de fallar raro ---
     rc, out = run(stub, ["-r", "port5"], {"POEHAL_CONFIG": "/nonexistent"})
@@ -200,60 +200,126 @@ def main():
           "ya no existe" in out and "cube5" in out, out)
 
     rc, out = run(stub, ["-w", "port5,1"], {"POEHAL_CONFIG": "/nonexistent"})
-    check("-w port5,1 sugiere cube5 SIN conectar a la red",
-          "ya no existe" in out and "cube5" in out
-          and "credenciales" not in out, out)
+    check("-w port5,1 sugiere cube5,ON sin conectar",
+          "cube5,ON" in out and "credenciales" not in out, out)
+
+    rc, out = run(stub, ["-w", "cube3,1"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-w cube3,1 (0/1/r viejos) sugiere ON",
+          "ya no se usa" in out and "cube3,ON" in out, out)
 
     rc, out = run(stub, ["-r", "ports"], {"POEHAL_CONFIG": "/nonexistent"})
     check("-r ports ya no es un comando",
-          "no es un comando de lectura" in out and "cubes" in out, out)
+          "no es un comando de lectura" in out, out)
 
-    for bad in ("cube0", "cube9"):
-        rc, out = run(stub, ["-r", bad], {"POEHAL_CONFIG": "/nonexistent"})
-        check("-r " + bad + " da fuera de rango",
-              "fuera de rango" in out, out)
+    # --- CLI: la forma nueva valida antes de tocar la red ---
+    rc, out = run(stub, ["-r", "cube9"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-r cube9 da fuera de rango (1-5)",
+          "fuera de rango" in out and "1-5" in out, out)
 
-    rc, out = run(stub, ["-w", "cube9,1"], {"POEHAL_CONFIG": "/nonexistent"})
-    check("-w cube9,1 valida el rango antes de conectar",
-          "fuera de rango" in out and "credenciales" not in out, out)
+    rc, out = run(stub, ["-w", "cube9,ON"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-w cube9,ON: dispositivo desconocido sin conectar",
+          "desconocido" in out and "credenciales" not in out, out)
+
+    rc, out = run(stub, ["-r", "cube1,VOLTIOS"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("parametro inexistente se rechaza sin conectar",
+          "Parametro desconocido" in out and "credenciales" not in out, out)
+
+    rc, out = run(stub, ["-r", "switch,PDCLASS"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("PDCLASS no aplica al switch",
+          "no aplica" in out and "credenciales" not in out, out)
+
+    rc, out = run(stub, ["-r", "cube1,ON"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("una accion por -r manda a usar -w",
+          "usa -w" in out, out)
+
+    rc, out = run(stub, ["-w", "cube1,POWER"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("una lectura por -w manda a usar -r",
+          "usa -r" in out, out)
+
+    rc, out = run(stub, ["-w", "switch,ON"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("ON no aplica al switch",
+          "no aplica" in out and "credenciales" not in out, out)
+
+    # POWER es alias de CONSUMED en el switch: el CLI debe aceptarlo igual
+    # que la libreria. Se rechazaba por validar contra la lista de listado.
+    rc, out = run(stub, ["-r", "switch,POWER"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("switch,POWER es valido en el CLI (llega a pedir credenciales)",
+          "no aplica" not in out, out)
+
+    coherencia = (
+        "from poeHal.components import (DEVICES, applies_to, parameters_for,\n"
+        "    CUBE_PARAMETERS, SWITCH_PARAMETERS, STATUS, ACTIONS)\n"
+        "malos = []\n"
+        "for dev in DEVICES:\n"
+        "    tabla = CUBE_PARAMETERS if dev != 'switch' else SWITCH_PARAMETERS\n"
+        "    for p in tabla:\n"
+        "        if not applies_to(dev, p) or p not in parameters_for(dev):\n"
+        "            malos.append(dev + ':' + p)\n"
+        "print('INCOHERENTES=%s' % malos)\n")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=coherencia)
+    check("todo parametro de una tabla se acepta y se lista",
+          "INCOHERENTES=[]" in out, out)
+
+    rc, out = run(stub, ["-r", "components"], {"POEHAL_CONFIG": "/nonexistent"})
+    check("-r components lista dispositivos y parametros",
+          "cube1" in out and "switch" in out and "RESTART" in out, out)
 
     rc, out = run(stub, ["help"], {"POEHAL_CONFIG": "/nonexistent"})
-    check("la ayuda habla de cubos, no de puertos",
-          "cube3" in out and "-r cubes" in out and "port3" not in out, out)
+    check("la ayuda muestra el formato nuevo",
+          "cube1,STATUS" in out and "cube3,ON" in out, out)
 
     # --- Libreria ---
     api = ("import poeHal as hal;"
            "faltan=[n for n in hal.__all__ if not hasattr(hal,n)];"
-           "atajos=[n for n in dir(hal) if n.startswith('cube')"
-           " and n[4:5].isdigit()];"
            "print('FALTAN=%s' % faltan);"
-           "print('ATAJOS=%d' % len(atajos))")
+           "print('DEVS=%d' % len(hal.devices()));"
+           "print('CUBOS=%d' % hal.NUM_CUBES)")
     rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=api)
     check("import poeHal no abre ninguna conexion", rc == 0, out)
     check("todo lo declarado en __all__ existe", "FALTAN=[]" in out, out)
-    check("estan las 24 funciones cubeNOn/Off/Restart",
-          "ATAJOS=24" in out, out)
+    check("hay 5 cubos mas el switch",
+          "DEVS=6" in out and "CUBOS=5" in out, out)
 
-    lazy = ("import poeHal as hal\n"
-            "try:\n"
-            "    hal.cube1On()\n"
-            "except hal.ConfigError:\n"
-            "    print('LANZO_CONFIGERROR')\n"
-            "print('PROCESO_VIVO')\n")
-    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=lazy)
-    check("cubeNOn sin credenciales lanza ConfigError",
-          "LANZO_CONFIGERROR" in out, out)
-    check("la libreria no termina el proceso",
-          rc == 0 and "PROCESO_VIVO" in out, out)
+    # las funciones sueltas de la 2.x avisan su reemplazo
+    viejas = ("import poeHal as hal\n"
+              "for n in ('cube1On','cube3Restart','status','power','cubes'):\n"
+              "    try:\n"
+              "        getattr(hal, n); print('EXISTE:'+n)\n"
+              "    except AttributeError as e:\n"
+              "        print('AVISO:'+str(e))\n")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=viejas)
+    check("las funciones de la 2.x ya no existen",
+          "EXISTE:" not in out, out)
+    check("y cada una dice su reemplazo en component()",
+          out.count("component(") >= 5, out)
 
-    rng = ("import poeHal as hal\n"
+    # validacion sin red
+    val = ("import poeHal as hal\n"
+           "casos = [('cube9', hal.ON), ('cube1','VOLTIOS'),"
+           " (hal.switch, hal.ON), (hal.cube1, hal.NOMINAL)]\n"
+           "for d,p in casos:\n"
+           "    try:\n"
+           "        hal.component(d,p); print('SINERROR')\n"
+           "    except ValueError:\n"
+           "        print('VALUEERROR')\n"
+           "    except hal.ConfigError:\n"
+           "        print('TOCO_LA_RED')\n")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=val)
+    check("component valida todo sin tocar la red",
+          out.count("VALUEERROR") == 4 and "TOCO_LA_RED" not in out, out)
+
+    # una accion valida si llega a la red, y falla con ConfigError
+    acc = ("import poeHal as hal\n"
            "try:\n"
-           "    hal.cubeOn(9)\n"
-           "except ValueError as e:\n"
-           "    print('VALUEERROR')\n")
-    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=rng)
-    check("cubeOn(9) valida el rango sin tocar la red",
-          "VALUEERROR" in out, out)
+           "    hal.component(hal.cube1, hal.ON)\n"
+           "except hal.ConfigError:\n"
+           "    print('CONFIGERROR')\n"
+           "print('VIVO')\n")
+    rc, out = run(stub, [], {"POEHAL_CONFIG": "/nonexistent"}, code=acc)
+    check("component(cube1, ON) sin credenciales lanza ConfigError",
+          "CONFIGERROR" in out, out)
+    check("la libreria no termina el proceso",
+          rc == 0 and "VIVO" in out, out)
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)
