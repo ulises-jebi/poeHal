@@ -61,6 +61,13 @@ variables `POEHAL_USER` / `POEHAL_PASS`.
 
 ---
 
+## Documentación
+
+La guía completa de las tres modalidades (CLI, paquete Python y web nativa del
+switch) está en [`docs/poeHal-guia-instalacion-y-uso.pdf`](docs/poeHal-guia-instalacion-y-uso.pdf):
+instalación desde cero, una sección por modalidad, la referencia de parámetros y
+los problemas comunes.
+
 ## Uso
 
 ```bash
@@ -316,8 +323,10 @@ poeHal/
 ├── install.sh          # Instalador Linux (pip --user + config 600)
 ├── uninstall.sh        # Desinstalador Linux
 ├── .gitignore          # Protege config.ini y artefactos locales
+├── docs/
+│   └── poeHal-guia-instalacion-y-uso.pdf   # Guia de las tres modalidades
 ├── examples/
-│   ├── minimo.py       # Ejemplo minimo: on / off
+│   ├── minimo.py       # Ejemplo minimo: off / on
 │   └── prueba_paquete.py  # Recorrido completo de la API
 ├── tests/
 │   └── test_config.py  # Pruebas sin switch ni red
